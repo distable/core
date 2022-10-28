@@ -1,0 +1,3 @@
+[submodule "src_plugins/sd1111_plugin"]
+	path = src_plugins/sd1111_plugin
+	url = git@github.com:stablecore-ai/sd1111_plugin.git
