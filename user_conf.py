@@ -1,5 +1,3 @@
-print_timing = False
-
 ip = '0.0.0.0'
 port = 5000
 
@@ -16,3 +14,8 @@ startup = [
 defaults = [
     ('txt2img', 'sd1111_plugin'),
 ]
+
+# GPU gl
+
+print_timing = False
+verbose_install = False

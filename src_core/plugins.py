@@ -1,7 +1,6 @@
 import importlib
 import inspect
 import os
-import sys
 import traceback
 import types
 from pathlib import Path
@@ -9,7 +8,7 @@ from pathlib import Path
 # Constants
 from bunch import Bunch
 
-from src_core import paths, printlib
+from src_core import installing, paths, printlib
 from src_core.jobs import Job, JobParams
 from src_core.PipeData import PipeData
 from src_core.printlib import print_bp
@@ -78,36 +77,6 @@ class Plugin:
         Returns: The git repo dependencies directory for this plugin
         """
         return paths.plug_repos / self.id / join
-
-    def gitclone(self, giturl, name, commithash):
-        # TODO clone into temporary dir and move if successful
-
-        from src_core.installing import run, git
-
-        path = self.repos(name)
-
-        if path.exists():
-            if commithash is None:
-                # Already installed
-                return
-
-            # Check if we have the right commit
-            current_hash = run(f'"{git}" -C {path} rev-parse HEAD', None, f"Couldn't determine {name}'s hash: {commithash}").strip()
-            if current_hash == commithash:
-                return
-
-            # Install the new commit
-            run(f'"{git}" -C {path} fetch', f"Fetching updates for {name}...", f"Couldn't fetch {name}")
-            run(f'"{git}" -C {path} checkout {commithash}', f"Checking out commint for {name} with hash: {commithash}...", f"Couldn't checkout commit {commithash} for {name}")
-            return
-
-        else:
-            run(f'"{git}" clone "{giturl}" "{path}"', f"Cloning {name} into {path}...", f"Couldn't clone {name}")
-
-            if commithash is not None:
-                run(f'"{git}" -C {path} checkout {commithash}', None, "Couldn't checkout {name}'s hash: {commithash}")
-
-            sys.path.append(path)
 
     def handles_job(self, job: JobParams | Job):
         if isinstance(job, Job):
@@ -221,8 +190,8 @@ def download(urls: list[str]):
     """
     from src_core import installing
 
-    for url in urls:
-        url = Path("https://github.com/") / Path(url) / '.git '
+    for uid in urls:
+        url = f'https://{Path("github.com/") / uid}'
         installing.gitclone(url, paths.plugins)
 
 
@@ -256,6 +225,7 @@ def load_path(path: Path):
 
         for f in path.iterdir():
             if f.is_file() and f.suffix == '.py':
+                installing.current_parent = path.stem
                 mod = importlib.import_module(f'src_plugins.{path.stem}.{f.stem}')
                 for name, member in inspect.getmembers(mod):
                     if inspect.isclass(member) and issubclass(member, Plugin) and not member == Plugin:
@@ -379,20 +349,12 @@ def run(params: JobParams | None = None, cmd: str = None, print=None, **kwargs) 
     if params is None and cmd is not None:
         params = make_jobparams_for_cmd(cmd, kwargs)
 
-
-    jobtype = type(params)
-
-    func = None
-    for plugin in plugins:
-        members = inspect.getmembers(plugin, inspect.isfunction)
-        for name, fn in members:
-            # Check if any of the member's arguments is the same type as params
-            for p in inspect.signature(fn).parameters.values():
-                if p.annotation == jobtype:
-                    # mprint("run ", p, params)
-                        print(f" run {plugin.id} {params}")
-                        return fn(plugin, params)
-
-        print(members)
+    for plug in plugins:
+        for jname, jfunc in plug.jobs.items():
+            for p in inspect.signature(jfunc).parameters.values():
+                if '_empty' not in str(p.annotation):
+                    if isinstance(params, p.annotation):
+                        print(f"Running {params} on {plug.id}")
+                        return jfunc(plug, params)
 
     mprinterr(f"Couldn't find a plugin to handle job: {params}")

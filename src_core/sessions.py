@@ -43,7 +43,7 @@ class Session:
             # TODO load a session metadata file
 
     def save_next(self, dat):
-        path = self.path / str(get_next_leadnum() + 1)
+        path = self.path / str(get_next_leadnum(self.path, ''))
         self.save(dat, path)
 
     def save(self, dat, path):
@@ -53,6 +53,7 @@ class Session:
         elif isinstance(dat, Image):
             self.create_if_missing()
             dat.save(path.with_suffix(".png"))
+            print(f"Saved pil/image to {path.with_suffix('.png')}")
         elif dat is None:
             pass
         else:
@@ -78,16 +79,21 @@ def get_next_leadnum(iterator=None, separator='_'):
     """
     iterator = iterator if iterator is not None else paths.sessions.iterdir()
 
+    if isinstance(iterator, Path):
+        if not iterator.exists():
+            return 1
+        iterator = iterator.iterdir()
+
     biggest = 0
     for path in iterator:
-        if path.is_dir():
+        if not path.is_dir():
             match = re.match(r"^(\d+)" + separator, path.name)
             if match is not None:
                 num = int(match.group(1))
                 if match:
                     biggest = max(biggest, num)
 
-    return biggest
+    return biggest + 1
 
 
 def format_session_id(name, num=None):

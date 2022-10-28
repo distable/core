@@ -1,6 +1,3 @@
-# this scripts installs necessary requirements and launches main program in webui.py
-import os
-
 import core
 from src_core import server
 

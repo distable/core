@@ -48,6 +48,10 @@ def sigint_handler(sig, frame):
 def init():
     global cargs
 
+    # Disable annoying message 'Some weights of the model checkpoint at openai/clip-vit-large-patch14 were not used ...'
+    from transformers import logging
+    logging.set_verbosity_error()
+
     # CTRL-C handler
     signal.signal(signal.SIGINT, sigint_handler)
 
@@ -56,6 +60,7 @@ def init():
     print()
     # mem_mon = memmon.MemUsageMonitor("MemMon", devicelib.device, options.opts)  # TODO remove options
     # mem_mon.start()
+
     # 1. Prepare args
     # ----------------------------------------
     args = shlex.split(commandline_args)
@@ -68,10 +73,6 @@ def init():
 
     mprint("Initializing plugins")
     # Iterate all directories in paths.repodir TODO this should be handled automatically by plugin installations
-    for d in paths.plug_repos.iterdir():
-        sys.path.insert(0, d.as_posix())
-
-    sys.path.insert(0, (root / "plugin-repos" / "stable_diffusion" / "ldm").as_posix())
 
     # TODO git clone modules from a user list
     plugins.load_urls(user_conf.startup)
