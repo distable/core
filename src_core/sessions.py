@@ -119,6 +119,7 @@ def run(params=None, cmd=None, **kwargs):
     """
     ret = plugins.run(params, cmd, print=mprint, **kwargs)
     current.save_next(ret)
+    print("")
 
 
 # endregion

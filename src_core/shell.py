@@ -26,12 +26,12 @@ def bg():
 @run.command(context_settings=dict(ignore_unknown_options=True, allow_extra_args=True))
 @click.pass_context
 def txt2img(c):
-    from src_plugins.sd1111_plugin.sd_txt2img import sd_txt2img
-
+    from src_plugins.sd1111_plugin.sd_job import sd_txt
+    
     kw = dict()
     for a in c.args:
         print(a)
         kw.update([a.split('=')])
 
     # plugins.run(cmd='txt2img', **kw)
-    sessions.run(sd_txt2img(job_repeats=kw['repeats'], **kw))
+    sessions.run(sd_txt(job_repeats=kw['repeats'], **kw))
