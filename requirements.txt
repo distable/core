@@ -29,3 +29,7 @@ bunch
 waitress
 click
 click-shell
+ascii_magic
+terminal-img
+yachalk
+munch

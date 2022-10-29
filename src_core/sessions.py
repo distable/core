@@ -4,7 +4,8 @@ from pathlib import Path
 
 from PIL.Image import Image
 
-from src_core import paths, plugins, printlib
+from src_core import jobs, paths, plugins, printlib
+from src_core.jobs import JobParams
 from src_core.PipeData import PipeData
 
 mprint = printlib.make_print("session")
@@ -111,6 +112,27 @@ def new_timestamp():
     Returns: A new session which is timestamped, e.g.
     """
     return Session(format_session_id(datetime.now().strftime("%Y-%m-%d_%H-%M-%S")))
+
+
+def job(v: str | JobParams, **kwargs):
+    jid = None
+    params = None
+    if isinstance(v, str):
+        jid = v
+        params = None
+    elif isinstance(v, JobParams):
+        jid = None
+        params = v
+
+    def handler(dat):
+        current.save_next(dat)
+
+    j = plugins.new_job(params, jid, print=mprint, **kwargs)
+    j.handler = handler
+    ret = jobs.enqueue(j)
+
+    current.save_next(ret)
+    print("")
 
 
 def run(params=None, cmd=None, **kwargs):

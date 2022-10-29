@@ -1,5 +1,4 @@
-import core
-from src_core import server
+from src_core import core, server
 
 if __name__ == "__main__":
     core.init()

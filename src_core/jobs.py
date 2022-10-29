@@ -6,7 +6,6 @@ from tqdm import tqdm
 # IDEAS
 # - We could have other stable-core nodes and dispatch to them (probably better ways to do this lol)
 from src_core import server
-from src_core.core import cargs
 from src_core.PipeData import PipeData
 from src_core.printlib import progress_print_out
 
@@ -15,9 +14,13 @@ class JobParams:
     """
     Parameters for a job
     """
+
     def __init__(self, __getdefaults__=False, **kwargs):
         self.__dict__.update(kwargs)
-        self.job_repeats = 0
+
+        self.job_repeats = 1
+        if 'n' in kwargs: self.job_repeats = int(kwargs['n'])
+        elif 'repeats' in kwargs: self.job_repeats = int(kwargs['repeats'])
 
         if not __getdefaults__:
             self.defaults = self.__class__(__getdefaults__=True)
@@ -28,23 +31,22 @@ class JobParams:
         for k, v in self.__dict__.items():
             if k == 'defaults':
                 continue
-            if v != self.defaults.__dict__[k]:
+            if v != self.defaults.__dict__.get(k, None):
                 s += f'{k}={v} '
         return s
 
 
 class Job:
-    def __init__(self, plugin_id: str, plugin_func: str, parameters: JobParams):
+    def __init__(self, jid: str, parameters: JobParams):
         self.jobid = str(uuid.uuid4())
-        self.plugid = plugin_id
-        self.plugfunc = plugin_func
+        self.jid = jid
 
         # State
-        self.param: JobParams = parameters
+        self.handler: None = None
+        self.params: JobParams = parameters
         self.data = PipeData()
-        self.run_count = 0
-        if self.param is not None:
-            self.param.job = self
+        if self.params is not None:
+            self.params.job = self
         self.state_text: str = ""
         self.progress_norm: float = 0
         self.progress_i: int = 0
@@ -93,59 +95,53 @@ class JobQueue:
     def enqueue(self, job):
         self.all.append(job)
         self.queued.append(job)
-        job.run_count += 1
 
         server.emit('added_job', job.jobid)
 
         # Immediately start next
         if len(self.queued) == 1:
-            self.process(job)
+            self.run(job)
 
-    def process(self, job):
+    def run(self, job: Job):
         """
         Must already be enqueued
         """
-        if job not in self.queued:
-            raise Exception("Job not in queue")
+        if job in self.queued:
+            self.queued.remove(job)
 
-        self.queued.remove(job)
         self.processing.append(job)
-
-        job.param.on_start(job)
-
         server.emit('started_job', job.jobid)
 
+        from src_core import plugins
+
+        for i in range(job.params.job_repeats):
+            ret = plugins.run(params=job.params)
+            if hasattr(job, 'handler'):
+                job.handler(ret)
+
+        self.finish(job)
+
     def cancel(self, job):
-        if job not in self.queued:
-            raise Exception("Job not in queue")
-
-        self.queued.remove(job)
-        self.all.remove(job)
-
-        server.emit('cancelled_job', job.jobid)
+        if job in self.all:
+            self.all.remove(job)
+        if job in self.queued:
+            self.queued.remove(job)
+            server.emit('cancelled_job', job.jobid)
 
     def finish(self, job):
-        if job not in self.processing:
-            raise Exception("Job not in processing")
-
-        if job.run_count < job.p.job_repeats:
-            self.enqueue(job)
-
-        self.processing.remove(job)
-        self.all.remove(job)
-
-        server.emit('finished_job', job.jobid)
+        if job in self.all:
+            self.all.remove(job)
+        if job in self.processing:
+            self.processing.remove(job)
+            server.emit('finished_job', job.jobid)
 
     def abort(self, job):
-        if job not in self.processing:
-            raise Exception("Job not in processing")
-
-        self.processing.remove(job)
-        self.all.remove(job)
-
-        job.request_abort = True
-
-        server.emit('aborted_job', job.jobid)
+        if job in self.all:
+            self.all.remove(job)
+        if job in self.processing:
+            self.processing.remove(job)
+            job.request_abort = True
+            server.emit('aborted_job', job.jobid)
 
     def remove(self, job):
         if job not in self.all:
@@ -173,6 +169,7 @@ class JobTQDM:
                          file=progress_print_out)
 
     def update(self):
+        from src_core.core import cargs
         from src_core.options import opts
         if not opts.multiple_tqdm or cargs.disable_console_progressbars:
             return
@@ -235,21 +232,26 @@ def start_next():
         return
 
     job = queue.queued[0]
-    queue.process(job)
+    queue.run(job)
 
 
 def enqueue(job):
     """
     Add a job to the queue.
     """
+    # Run it immediately
+    # TODO we need a job thread with proper dispatching
     queue.enqueue(job)
 
 
-def new_job(plugid, name, jobparams):
+def run(job):
+    queue.run(job)
+
+
+def new_job(name, jobparams):
     global total_created
     total_created += 1
-    j = Job(plugid, name, jobparams)
-    enqueue(j)
+    j = Job(name, jobparams)
 
     return j
 

@@ -18,5 +18,9 @@ class PipeData:
         path = Path(path)
         if isinstance(self.image, Image.Image):
             self.image.save(path)
+
+            from image import DrawImage
+            image = DrawImage.from_file(path)
+            image.draw_image()
         else:
             printerr(f"Cannot save {self.image} to {path}")

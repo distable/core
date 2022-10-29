@@ -50,7 +50,7 @@ def check_run_python(code):
 
 
 def run(command, desc=None, errdesc=None):
-    if user_conf.verbose_install:
+    if user_conf.print_more:
         print(f"  >> {command}")
     elif desc is not None:
         print(desc)
