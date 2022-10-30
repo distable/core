@@ -96,7 +96,7 @@ This is a preview of the end-game plugin ecosystem, how it will look and feel. W
 * **Audio Analysis:** turn audio inputs into numbers for audio-reactivity, using FFT and stuff like that. Can maybe use Magenta.
 * **Palette Match:** img2img, adjust an image's palette to match an input image.
 * **Flow Warp:** img2img, displace an image using estimated flow between 2 input images.
-* **Prompt Wildcards:** txt2txt
+* **[Wildcards](distable/wildcard_plugin):** a plugin to add RNG into your prompts.
 
 
 Upscalers:
@@ -108,7 +108,6 @@ Upscalers:
 * **Deforum:** txt2img, technically just a macro of other plugins (sorry)
 * **LucidSonicDreams:** txt2img, hopefully we can make it adapt to any model
 * **MetaPlugin:** a plugin to string other plugins together, either with job macros or straight-up python. Could be done without a plugin but this allows all clients to automatically support these features.
-* **Wildcards:** a plugin to add RNG into your prompts.
 * **Whisper:** audio2txt
 
 Clients:
