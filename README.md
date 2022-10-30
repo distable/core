@@ -36,51 +36,59 @@ startup = ['sd1111_plugin']
 3. Launch run-server.sh (Linux) or backend.bat (Windows)
 
 ```log
+stable-core  🍣 master 📝 ×11🗃️  ×6🐍 v3.10.6  took 1m49s
 ❯ ./run.sh
-
-[session] New session: 001_2022-10-26_12-00-42
 Python: 3.10.6 (main, Aug  3 2022, 17:39:45) [GCC 12.1.1 20220730]
 Revision: <none>
 
-[core] (0.00s) Initializing plugins
-[core] (3.40s) Installing plugins...
-[plugin] (0.00s)   - sd1111_plugin
-[core] (0.01s) Loading plugins...
-[plugin] (0.00s)   - sd1111_plugin
-LatentDiffusion: Running in eps-prediction mode
-DiffusionWrapper has 859.52 M params.
-making attention of type 'vanilla' with 512 in_channels
-Working with z of shape (1, 4, 32, 32) = 4096 dimensions.
-making attention of type 'vanilla' with 512 in_channels
-Loading weights [7460a6fa] from /home/nuck/stable-core/plug-res/sd1111_plugin/sd-v1-4.ckpt
-Global Step: 470000
-Applying cross attention optimization (Doggettx)
-[core] (10.38s) All ready!
-[server] (0.00s) Starting ...
+[core] 1. Downloading plugins
+Fetching updates for sd1111_plugin...
+Checking out commit for sd1111_plugin with hash: /home/nuck/stable-core/src_plugins...
+
+[core] 2. Initializing plugins
+[core] Found 8 jobs:
+[core]  - txt2img
+[core]  - imagine
+[core]  - dream
+[core]  - sd1111.img2img
+[core]  - sd1111.txt2img
+[core]  - wildcard.add
+[core]  - wildcard.apply
+[core]  - wildcard.rem
+
+[core] 3. Installing plugins...
+[plugin]   - sd1111
+[plugin]   - wildcard
+
+[core] 4. Loading plugins...
+[plugin]   - sd1111
+[plugin]   - wildcard
+[core] All ready!
+[server] Starting ...
+[session] New session: 001_2022-10-29_23-07-55
 
 > Enter commands here or use a client ...
 
-> txt2img prompt="Woaaa! Kawaii monster by salvador dali"
-prompt=Woaaa! Kawaii monster by salvador dali
-[session]  run sd1111_plugin <src_plugins.sd1111_plugin.sd_txt2img.sd_txt2img object at 0x7f7963df5a50>
-100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 22/22 [00:12<00:00,  1.71it/s]
+> txt2img p="Woaaa! Kawaii monster by salvador dali"
+p=Woaaa! Kawaii monster by salvador dali
+100%|███████████████████████████████████████████████| 22/22 [00:12<00:00,  1.71it/s]
 
 ```
 
 ## Plugin
 
-This list is a preview of our end-game plugin ecosystem, how it will look and feel. We encourage community members to contribute and maintain some of these plugins themselves.
+This is a preview of the end-game plugin ecosystem, how it will look and feel. We encourage community members to contribute and maintain some of these plugins themselves, or make new ones.
 
-* **[AUTO1111 StableDiffusion](https://github.com/stablecore-ai/sd1111_plugin):** txt2img, img2img, ported from AUTO1111's webui with all optimizations 
-* **Diffusers StableDiffusion:** txt2img, img2img
-* **VQGAN+CLIP / PyTTI:** txt2img, img2img
+* **[AUTO1111 StableDiffusion](https://github.com/distable/sd1111_plugin):** txt2img, img2img, ported from AUTO1111's webui with all optimizations 
+* **[HuggingFace Diffusers](https://github.com/distable/sdhug_plugin):** txt2img, img2img
+* **[VQGAN+CLIP / PyTTI](https://github.com/distable/pytti_plugin):** txt2img, img2img
 * **DiscoDiffusion:** txt2img, img2img
 * **StableHorde:** txt2img, serve
 * **CLIP Interrogate:** img2txt
 * **Dreambooth**: train_ckpt
 * **StyleGAN:** train_ckpt, img2img
-* **2D Transforms:** simple 2D transforms like translate, rotate, and scale.
-* **3D Transforms:** 3D transforms using virtual depth like rotating a sphere OR predicted depth from AdaBins+MiDaS. Could implement depth guidance to try and keep the depth more stable.
+* **[2D Transforms](https://github.com/distable/math2d_plugin):** simple 2D transforms like translate, rotate, and scale.
+* **[3D Transforms](https://github.com/stablecore-ai/math3d_plugin):** 3D transforms using virtual depth like rotating a sphere OR predicted depth from AdaBins+MiDaS. Could implement depth guidance to try and keep the depth more stable.
 * **Guidance:** these plugins implement guidance losses into other generation plugins.
    * **CLIP Guidance:** guidance using CLIP models.
    * **Lpips Guidance:** guidance using lpips. _(used in Disco Diffusion to reduce flickering)_
