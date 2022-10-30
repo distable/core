@@ -48,7 +48,7 @@ Fetching updates for sd1111_plugin...
 Checking out commit for sd1111_plugin with hash: /home/nuck/stable-core/src_plugins...
 
 [core] 2. Initializing plugins
-[core] Found 8 jobs:
+[core] Found 5 jobs:
 [core]  - txt2img
 [core]  - imagine
 [core]  - dream
