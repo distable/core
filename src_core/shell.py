@@ -28,7 +28,7 @@ def run():
                     kw.update([a.split('=')])
 
                 # plugins.run(cmd='txt2img', **kw)
-                sessions.job(plugins.make_jobparams_by_jid(ifo.jid, kw))
+                sessions.job(plugins.make_params(ifo.jid, kw))
 
             # Annotate the function as we normally would with @
             job_command = click.pass_context(job_cmd)

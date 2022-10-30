@@ -114,20 +114,11 @@ def new_timestamp():
     return Session(format_session_id(datetime.now().strftime("%Y-%m-%d_%H-%M-%S")))
 
 
-def job(v: str | JobParams, **kwargs):
-    jid = None
-    params = None
-    if isinstance(v, str):
-        jid = v
-        params = None
-    elif isinstance(v, JobParams):
-        jid = None
-        params = v
-
+def job(query: str | JobParams, **kwargs):
     def handler(dat):
         current.save_next(dat)
 
-    j = plugins.new_job(params, jid, print=mprint, **kwargs)
+    j = plugins.new_job(query, print=mprint, **kwargs)
     j.handler = handler
     ret = jobs.enqueue(j)
 
@@ -135,11 +126,11 @@ def job(v: str | JobParams, **kwargs):
     print("")
 
 
-def run(params=None, cmd=None, **kwargs):
+def run(query: JobParams | str | None = None, **kwargs):
     """
     Run a job in the session's context, meaning the output JobState data will be saved to disk
     """
-    ret = plugins.run(params, cmd, print=mprint, **kwargs)
+    ret = plugins.run(query, print=mprint, **kwargs)
     current.save_next(ret)
     print("")
 

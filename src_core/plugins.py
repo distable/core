@@ -20,6 +20,11 @@ mprint = printlib.make_print("plugin")
 mprinterr = printlib.make_printerr("plugin")
 
 
+# DEFINITIONS
+#
+# jid: a job ID, which can be either in the full form 'plug/job' or just 'job'
+
+
 # region Library
 
 class PlugjobToken:
@@ -29,15 +34,16 @@ class PlugjobToken:
     with an actual function.
     """
 
-    def __init__(self, func):
+    def __init__(self, func, aliases=None):
         self.func = func
+        self.aliases = aliases
 
 
-def plugjob(func):
+def plugjob(func, aliases=None):
     """
     Decorate job functions with this to register them.
     """
-    return PlugjobToken(func)
+    return PlugjobToken(func, aliases)
 
 
 class Plugin:
@@ -58,14 +64,18 @@ class Plugin:
 
         # Iterate all our attributes and transform JobTokens into functions
         for attr in dir(self):
-            val = getattr(self, attr)
-
-            if isinstance(val, PlugjobToken):
+            token = getattr(self, attr)
+            if isinstance(token, PlugjobToken):
                 # mprint(f"Registering {attr} job")
-                self.jobs[val.func.__name__] = val.func
-                setattr(self, attr, val.func)
+                self.jobs[token.func.__name__] = token.func
+                setattr(self, attr, token.func)
+                # Register aliases
+                # mprint(f"Registering aliases: {token.aliases}")
+                if token.aliases is not None:
+                    for alias in token.aliases:
+                        self.jobs[alias] = token.func
 
-    # region API
+    # region paths
     def res(self, join='') -> Path:
         """
         Returns: The resource directory for this plugin
@@ -83,10 +93,6 @@ class Plugin:
         Returns: The git repo dependencies directory for this plugin
         """
         return paths.plug_repos / self.id / join
-
-    def handles_job(self, job: JobParams | Job):
-        if isinstance(job, Job):
-            job = job.params
 
     # endregion
 
@@ -126,17 +132,17 @@ class Plugin:
         pass
 
 
-def jid_to_jname(plugid):
+def pid_to_plugid(pid):
     """
     Convert 'user/repository' to 'repository'
     """
-    if isinstance(plugid, Path):
-        plugid = plugid.as_posix()
+    if isinstance(pid, Path):
+        pid = pid.as_posix()
 
-    if '/' in plugid:
-        plugid = plugid.split('/')[-1]
+    if '/' in pid:
+        pid = pid.split('/')[-1]
 
-    return plugid
+    return pid
 
 
 # endregion
@@ -161,7 +167,7 @@ def get(query):
     if isinstance(query, Plugin):
         return query
 
-    query = jid_to_jname(query)
+    query = pid_to_plugid(query)
 
     for plugin in plugins:
         if plugin.id.startswith(query):
@@ -257,9 +263,9 @@ def load_urls(urls: list[str]):
     Load plugins from a list of URLs
     """
     for url in urls:
-        load_path(paths.plugins / jid_to_jname(url))
+        load_path(paths.plugins / pid_to_plugid(url))
         # _plugin is optional
-        load_path(paths.plugins / f"{jid_to_jname(url)}_plugin")
+        load_path(paths.plugins / f"{pid_to_plugid(url)}_plugin")
 
 
 def load_dir(loaddir: Path):
@@ -310,17 +316,18 @@ def broadcast(name, msg=None, *args, **kwargs):
     """
     Dispatch a function call to all plugins.
     """
+    ret = None
     for plugin in plugins:
         plug = get(plugin)
         if msg and plug:
             mprint(f"  - {msg.format(id=plug.id)}")
 
         print(wrap_ansi_16(Color.gray.on), end="")
-        invoke(plugin, name, None, False, None, *args, **kwargs)
+        ret = invoke(plugin, name, None, False, None, *args, **kwargs) or ret
         print(wrap_ansi_16(Color.gray.off), end="")
 
 
-plugin_dirs = []  # Plugin infos (script class, filepath)
+plugin_dirs = []  # Plugin infos (script class, filepathchalk.green_bright())
 plugins = []  # Loaded modules
 
 
@@ -337,18 +344,18 @@ def resolve_and_split_jid(jid, allow_jobonly=False) -> tuple[str, str]:
     return split_jid(ifo.jid, allow_jobonly)
 
 
-def split_jid(uid, allow_jobonly=False) -> tuple[str, str]:
+def split_jid(jid, allow_jobonly=False) -> tuple[str, str]:
     """
-    Split a plugin UID into a tuple of (owner, repo)
+    Split a plugin jid into a tuple of (plug, job)
     """
-    if '.' in uid:
-        s = uid.split('.')
+    if '.' in jid:
+        s = jid.split('.')
         return s[0], s[1]
 
     if allow_jobonly:
-        return None, uid
+        return None, jid
 
-    raise ValueError(f"Invalid plugin UID: {uid}")
+    raise ValueError(f"Invalid plugin jid: {jid}")
 
 
 def get_jobs() -> list[JobInfo]:
@@ -392,22 +399,29 @@ def get_jobentry(munch, ifo):
     return dict()
 
 
-def get_job(query) -> JobInfo:
+def get_job(query, partial=False) -> JobInfo|None:
     for ifo in get_jobs():
         if query == ifo.jid:
             return ifo
 
+    if partial:
+        for ifo in get_jobs():
+            plug,job = split_jid(ifo.jid, True)
+            if job == query:
+                return ifo
     return None
 
 
 def resolve_job(query):
-    ifo = get_job(query)
-    if not ifo.alias:
-        return ifo
-    else:
+    ifo = get_job(query, True)
+    if ifo is None:
+        return None
+    if ifo.alias:
         for j in get_jobs():
             if not j.alias and ifo.func == j.func:
                 return j
+    else:
+        return ifo
 
     return None
 
@@ -428,18 +442,21 @@ def get_jidparams(jid):
                 mprinterr(f"Unknown jobparameter type: {ptype}")
 
 
-def make_jobparams_by_jid(jid, kwargs, user_defaults=True):
+def make_params(query, kwargs, user_defaults=True):
     """
     Instantiate job parameters for a matching job.
     Args:
         user_defaults:
-        jid: The name of the job.
+        query: The name of the job.
         kwargs: The parameters for the JobParams' constructor.
 
     Returns: A new JobParams of the matching type.
     """
-    clas = get_jidparams(jid)
-    ifo = resolve_job(jid)
+    if isinstance(query, JobParams):
+        return query
+
+    clas = get_jidparams(query)
+    ifo = resolve_job(query)
 
     # Flatten kwargs onto the user defaults
     if user_defaults:
@@ -454,16 +471,16 @@ def make_jobparams_by_jid(jid, kwargs, user_defaults=True):
     return clas(**kwargs)
 
 
-def get_job_function(params: JobParams | None = None, jid: str = None, print=None, **kwargs):
+def get_job_function(query: JobParams | str | None = None, print=None, **kwargs):
     print = print if print is not None else mprint
 
-    if params is None and jid is not None:
-        params = make_jobparams_by_jid(jid, kwargs)
+    if isinstance(query, str):
+        query = make_params(query, kwargs)
 
     for j in get_jobs():
         for p in inspect.signature(j.func).parameters.values():
             if '_empty' not in str(p.annotation):
-                if isinstance(params, p.annotation):
+                if isinstance(query, p.annotation):
                     return j
 
     return None
@@ -488,11 +505,17 @@ def job_to_plugin(job: str | JobParams):
     pass
 
 
-def new_job(params: JobParams | None = None, cmd: str = None, print=None, **kwargs) -> Job | None:
-    j = get_job_function(params, cmd, print, **kwargs)
-    return jobs.new_job(j.jid, params)
+def new_job(query: JobParams | str | None = None, print=None, **kwargs) -> Job | None:
+    if isinstance(query, str):
+        query = make_params(query, kwargs)
+
+    j = get_job_function(query, print, **kwargs)
+    return jobs.new_job(j.jid, query)
 
 
-def run(params: JobParams | None = None, cmd: str = None, print=None, **kwargs) -> PipeData | None:
-    j = get_job_function(params, cmd, print, **kwargs)
-    return j.func(j.jid, params)
+def run(query: JobParams | str | None = None, print=None, **kwargs) -> PipeData | None:
+    if isinstance(query, str):
+        query = make_params(query, kwargs)
+
+    j = get_job_function(query, print, **kwargs)
+    return j.func(j.jid, query)

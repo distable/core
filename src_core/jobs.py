@@ -36,6 +36,11 @@ class JobParams:
         return s
 
 
+class prompt_job(JobParams):
+    def __init__(self, prompt: str = None, p: str = None, **kwargs):
+        super().__init__(**kwargs)
+        self.prompt = prompt or p or ''
+
 class Job:
     def __init__(self, jid: str, parameters: JobParams):
         self.jobid = str(uuid.uuid4())
@@ -115,7 +120,7 @@ class JobQueue:
         from src_core import plugins
 
         for i in range(job.params.job_repeats):
-            ret = plugins.run(params=job.params)
+            ret = plugins.run(job.params)
             if hasattr(job, 'handler'):
                 job.handler(ret)
 
