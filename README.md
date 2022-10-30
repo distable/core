@@ -81,7 +81,7 @@ This is a preview of the end-game plugin ecosystem, how it will look and feel. W
 
 * **[AUTO1111 StableDiffusion](https://github.com/distable/sd1111_plugin):** txt2img, img2img, ported from AUTO1111's webui with all optimizations 
 * **[HuggingFace Diffusers](https://github.com/distable/sdhug_plugin):** txt2img, img2img
-* **[VQGAN+CLIP / PyTTI](https://github.com/distable/pytti_plugin):** txt2img, img2img
+* **VQGAN+CLIP / PyTTI:** txt2img, img2img
 * **DiscoDiffusion:** txt2img, img2img
 * **StableHorde:** txt2img, serve
 * **CLIP Interrogate:** img2txt
