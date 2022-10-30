@@ -1,6 +1,7 @@
 import inspect
 import types
 
+from src_core import paths
 from src_core.classes import JobParams
 from src_core.paths import split_jid
 from src_core.lib.printlib import printerr
@@ -12,6 +13,11 @@ class JobInfo:
         self.func = jfunc
         self.plug = jplug
         self.alias = alias
+
+    @property
+    def short_jid(self):
+        plug,job = paths.split_jid(self.jid, True)
+        return job
 
     def get_paramclass(self):
         """
@@ -38,7 +44,7 @@ class JobInfo:
                 return v[jname]
         return dict()
 
-    def new_params(self, kwargs)->JobParams:
+    def new_params(self, kwargs) -> JobParams:
         """
         Instantiate job parameters for a matching job.
         Args:
@@ -53,4 +59,3 @@ class JobInfo:
                 kwargs[k] = v()
 
         return self.get_paramclass()(**kwargs)
-

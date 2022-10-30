@@ -33,7 +33,7 @@ class Plugin:
 
                 # Register job
                 # mprint(f"Registering {attr} job")
-                self.jobs.append(JobInfo(jname, jfunc, self))
+                self.jobs.append(JobInfo(f'{self.id}.{jname}', jfunc, self))
 
                 # Register aliases
                 # mprint(f"Registering aliases: {token.aliases}")

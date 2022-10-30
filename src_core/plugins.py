@@ -44,6 +44,7 @@ def download(urls: list[str]):
             url = f'https://{Path("github.com/") / pid}'
 
         installing.gitclone(url, paths.plugins)
+        logplugin(" -", url)
 
 
 def plugjob(func, aliases=None):
@@ -207,12 +208,12 @@ def load_plugins_in(loaddir: Path):
         print_bp(f"{plugin.id} ({plugin.dir})")
 
 
-def get_job(jquery, partial=True, resolve=False) -> JobInfo | None:
+def get_job(jquery, short=True, resolve=False) -> JobInfo | None:
     """
     Get a JobInfo from a job query, e.g. 'sd1111.img2img' or 'img2img' with partial is enabled.
         Args:
             jquery:
-            partial: Allow partial matches, e.g. 'img2img' will match 'sd1111.img2img'
+            short: Allow partial matches, e.g. 'img2img' will match 'sd1111.img2img'
             resolve: Resolve aliases to the actual job
 
         Returns:
@@ -235,7 +236,7 @@ def get_job(jquery, partial=True, resolve=False) -> JobInfo | None:
                 if jquery == ifo.jid:
                     return ifo
 
-            if ret is None and partial:
+            if ret is None and short:
                 for ifo in get_jobs():
                     plug, job = split_jid(ifo.jid, True)
                     if job == jquery:
@@ -265,7 +266,7 @@ def new_params(jquery: JobParams | str | None = None, uconf_defaults=True, **kwa
     if isinstance(jquery, JobParams):
         return jquery
     else:
-        ifo = get_job(jquery, partial=True, resolve=True)
+        ifo = get_job(jquery, short=True, resolve=True)
 
         # Flatten kwargs onto the user defaults
         if uconf_defaults:
@@ -280,7 +281,7 @@ def new_job(jquery: JobParams | str | None = None, **kwargs) -> Job | None:
     """
     Create a new Job for a job query or kwargs.
     """
-    ifo = get_job(jquery, partial=True)
+    ifo = get_job(jquery, short=True)
     params = new_params(jquery, partial=True, **kwargs)
 
     return jobs.new_job(ifo.jid, params)
@@ -290,7 +291,7 @@ def run(jquery: JobParams | str | None = None, **kwargs) -> object | None:
     """
     Run a job with the given query and kwargs.
     """
-    ifo = get_job(jquery, partial=True)
+    ifo = get_job(jquery, short=True)
     params = new_params(jquery, partial=True, **kwargs)
 
     return ifo.func(ifo.jid, params)
@@ -304,7 +305,7 @@ def broadcast(name, msg=None, *args, **kwargs):
     for plugin in plugins:
         plug = get_plug(plugin)
         if msg and plug:
-            logplugin(f"  - {msg.format(id=plug.id)}")
+            logplugin(" -", msg.format(id=plug.id))
 
         print(wrap_ansi_16(Color.gray.on), end="")
         ret = invoke(plugin, name, None, False, None, *args, **kwargs) or ret

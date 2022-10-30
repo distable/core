@@ -122,10 +122,13 @@ def log_jobs():
     if len(jobs) > 0:
         logcore(f"Found {len(jobs)} jobs:")
         for j in jobs:
+            strjid = str(j.jid)
+            if j.alias:
+                strjid = chalk.dim(strjid)
             if not user_conf.print_more:
-                logcore(f" - {j.jid}")
+                logcore(" -", strjid)
             else:
-                logcore(f" - {j.jid} ({j.func})")
+                logcore(" -", f"{strjid} ({j.func})")
 
 
 torch_command = os.environ.get('TORCH_COMMAND', "pip install torch==1.12.1+cu113 torchvision==0.13.1+cu113 --extra-index-url https://download.pytorch.org/whl/cu113")

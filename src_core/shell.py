@@ -17,24 +17,37 @@ def cli():
 @shell(prompt='\n> ')
 def run():
     from src_core import plugins, sessions
-    for plug in plugins.plugins:
-        ctor = type(plug).__init__
-        pluggroup = click.group(name=plug.id)
-        for ifo in plugins.get_jobs():
-            # The template function for every job
-            def job_cmd(c):
-                kw = dict()
-                for a in c.args:
-                    print(a)
-                    kw.update([a.split('=')])
+    def flatten(l):
+        return [item for sublist in l for item in sublist]
 
-                # plugins.run(cmd='txt2img', **kw)
-                sessions.job(plugins.make_params(ifo.jid, kw))
+    short_jids = set([j.short_jid for j in plugins.get_jobs()])
+    for jid in short_jids:
+        ifo = plugins.get_job(jid, short=True)
 
-            # Annotate the function as we normally would with @
-            job_command = click.pass_context(job_cmd)
-            job_command = run.command(ifo.jid, context_settings=dict(ignore_unknown_options=True, allow_extra_args=True))(job_command)
-    pass
+        print(jid, ifo.jid)
+
+        # The template function for every short_jid
+        def job_cmd(c, **kwargs):
+            kw = dict()
+            for a in c.args:
+                print(a)
+                kw.update([a.split('=')])
+
+            # plugins.run(cmd='txt2img', **kw)
+            # print(ifo.jid)
+            sessions.job(plugins.new_params(ifo.jid, kw))
+
+        # Annotate the function as we normally would with @
+        job_cmd = click.pass_context(job_cmd)
+        job_cmd = run.command(jid, context_settings=dict(ignore_unknown_options=True, allow_extra_args=True))(job_cmd)
+
+        pclasses = ifo.get_paramclass()
+        pclasses = [pclasses, *inspect.getmro(ifo.get_paramclass())]
+
+        args = flatten([inspect.signature(cls).parameters.values() for cls in pclasses])
+        # print(args)
+        for arg in args:
+            job_cmd = click.option(f'--{arg.name}', required=False, type=arg.annotation)(job_cmd)
 
 
 @run.command("exit")
