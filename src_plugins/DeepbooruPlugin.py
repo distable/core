@@ -4,8 +4,7 @@ import time
 
 from src_core.installing import pipargs
 from run_server import is_installed
-from src_core.plugins import Plugin
-
+from src_core.classes.Plugin import Plugin
 
 
 class DeepDanbooruPlugin(Plugin):

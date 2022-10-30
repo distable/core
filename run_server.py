@@ -1,3 +1,4 @@
+import src_core.logs
 from src_core import core, server
 
 if __name__ == "__main__":
@@ -5,7 +6,7 @@ if __name__ == "__main__":
 
     # Dry run, only install and exit.
     if core.cargs.dry:
-        core.mprint("Exiting because of --dry argument")
+        src_core.logs.logcore("Exiting because of --dry argument")
         exit(0)
 
     # Start server

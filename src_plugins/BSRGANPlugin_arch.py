@@ -19,7 +19,7 @@ def initialize_weights(net_l, scale=1):
                 init.kaiming_normal_(m.weight, a=0, mode='fan_in')
                 m.weight.data *= scale
                 if m.bias is not None:
-                    m.bias.data.zero_()
+                    m.bias.context.zero_()
             elif isinstance(m, nn.BatchNorm2d):
                 init.constant_(m.weight, 1)
                 init.constant_(m.bias.data, 0.0)

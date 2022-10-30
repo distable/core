@@ -6,7 +6,8 @@ from PIL import Image
 from basicsr.utils.download_util import load_file_from_url
 
 from src_core.installing import mvfiles
-from src_core import modellib, plugins as arch, devicelib
+from src_core import plugins as arch, devicelib
+from src_core.lib import modellib
 from old.upscaler import Upscaler, UpscalerData
 from shared import opts
 from src_core.paths import root, modeldir

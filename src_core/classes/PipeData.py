@@ -2,7 +2,7 @@ from pathlib import Path
 
 from PIL import Image
 
-from src_core.printlib import printerr
+from src_core.lib.printlib import printerr
 
 
 class PipeData:

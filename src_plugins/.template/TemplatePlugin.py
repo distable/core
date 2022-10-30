@@ -1,4 +1,5 @@
-from src_core.plugins import Plugin
+from src_core.classes.Plugin import Plugin
+
 
 class TemplatePlugin(Plugin):
     def title(self):

@@ -1,7 +1,5 @@
-import sys
+import re
 from pathlib import Path
-
-# script_path = Path(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
 
 root = Path(__file__).resolve().parent.parent
 
@@ -29,32 +27,76 @@ plug_logs.mkdir(exist_ok=True)
 plug_repos.mkdir(exist_ok=True)
 sessions.mkdir(exist_ok=True)
 
-sys.path.insert(0, root.as_posix())
+# These suffixes will be stripped from the plugin IDs for simplicity
+plugin_suffixes = ['_plugin']
 
-# search for directory of stable diffusion in following places
-# path_dirs = [
-#     (sd_path, 'ldm', 'Stable Diffusion', []),
-#     (os.path.join(sd_path, '../taming-transformers'), 'taming', 'Taming Transformers', []),
-#     (os.path.join(sd_path, '../CodeFormer'), 'inference_codeformer.py', 'CodeFormer', []),
-#     (os.path.join(sd_path, '../BLIP'), 'models/blip.py', 'BLIP', []),
-#     (os.path.join(sd_path, '../k-diffusion'), 'k_diffusion/SDSampler.py', 'k_diffusion', ["atstart"]),
-# ]
-#
-# paths = {}
-#
-# for d, must_exist, what, options in path_dirs:
-#     path = Path(script_path, d, must_exist).resolve()
-#
-#     if not path.exists():
-#         print(f"Warning: {what} not found at path {path}", file=sys.stderr)
-#     else:
-#         d = os.path.abspath(d)
-#         if "atstart" in options:
-#             sys.path.insert(0, d)
-#         else:
-#             sys.path.append(d)
-#
-#         paths[what] = d
+# sys.path.insert(0, root.as_posix())
 
-# Convert above loop to a function (
 
+def format_session_id(name, num=None):
+    if num is None:
+        num = get_next_leadnum(directory=sessions)
+
+    return f"{num:0>3}_{name}"
+
+
+def get_next_leadnum(iterator=None, separator='_', directory=None):
+    """
+    Find the largest 'leading number' in the directory names and return it
+    e.g.:
+    23_session
+    24_session
+    28_session
+    23_session
+
+    return value is 28
+    """
+    iterator = iterator if iterator is not None else directory.iterdir()
+
+    if isinstance(iterator, Path):
+        if not iterator.exists():
+            return 1
+        iterator = iterator.iterdir()
+
+    biggest = 0
+    for path in iterator:
+        if not path.is_dir():
+            match = re.match(r"^(\d+)" + separator, path.name)
+            if match is not None:
+                num = int(match.group(1))
+                if match:
+                    biggest = max(biggest, num)
+
+    return biggest + 1
+
+
+def short_pid(pid):
+    """
+    Convert 'user/repository' to 'repository'
+    """
+    if isinstance(pid, Path):
+        pid = pid.as_posix()
+
+    if '/' in pid:
+        pid = pid.split('/')[-1]
+
+    # Strip suffixes
+    for suffix in plugin_suffixes:
+        if pid.endswith(suffix):
+            pid = pid[:-len(suffix)]
+
+    return pid
+
+
+def split_jid(jid, allow_jobonly=False) -> tuple[str:None, str]:
+    """
+    Split a plugin jid into a tuple of (plug, job)
+    """
+    if '.' in jid:
+        s = jid.split('.')
+        return s[0], s[1]
+
+    if allow_jobonly:
+        return None, jid
+
+    raise ValueError(f"Invalid plugin jid: {jid}")

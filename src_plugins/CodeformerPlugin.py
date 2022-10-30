@@ -7,7 +7,8 @@ import src_plugins.face_restoration
 
 import src_plugins.sd1111_plugin.options
 from src_plugins import shared
-from src_core import modellib, devicelib
+from src_core import devicelib
+from src_core.lib import modellib
 from src_core.paths import modeldir
 from shared import cmd_opts
 
@@ -29,7 +30,7 @@ def setup_model(dirname):
     if not os.path.exists(model_path):
         os.makedirs(model_path)
 
-    path = paths.paths.get("CodeFormer", None)
+    path = paths.paths.get_plug("CodeFormer", None)
     if path is None:
         return
 

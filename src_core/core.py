@@ -5,15 +5,68 @@ import signal
 import sys
 
 import user_conf
-from src_core import paths, plugins, printlib
+from src_core import paths, plugins
+from src_core.classes.MemMon import MemMon
 from src_core.installing import is_installed, pipargs, python, run
-from src_core.printlib import print_info
+from src_core.lib import devices
+from src_core.lib.printlib import print_info
+from src_core.logs import logcore, logcore_err
+
+from yachalk import chalk
 
 cparse = argparse.ArgumentParser()
 cparse.add_argument("--dry", action='store_true', help="Only install and test the core, do not launch server.")
 cargs = None
 
-from yachalk import chalk
+memmon = None
+
+
+def setup_annoying_logging():
+    # Disable annoying message 'Some weights of the model checkpoint at openai/clip-vit-large-patch14 were not used ...'
+    from transformers import logging
+    logging.set_verbosity_error()
+
+
+def setup_ctrl_c():
+    def sigint_handler(sig, frame):
+        print(f'Interrupted with signal {sig} in {frame}')
+        os._exit(0)
+
+    # CTRL-C handler
+    signal.signal(signal.SIGINT, sigint_handler)
+
+
+def setup_memmon():
+    global memmon
+    mem_mon = MemMon("MemMon", devices.device)
+    mem_mon.start()
+
+
+def init():
+    setup_args()
+
+    setup_annoying_logging()
+    setup_ctrl_c()
+    # setup_memmon()
+
+    print_info()
+
+    install_core()
+    download_plugins()
+    create_plugins()
+    log_jobs()
+    install_plugins()
+    launch_plugins()
+
+    print()
+    logcore("All ready!")
+
+
+def setup_args():
+    global cargs
+    args = shlex.split(commandline_args)
+    sys.argv += args
+    cargs = cparse.parse_args(args)
 
 
 def install_core():
@@ -33,80 +86,48 @@ def install_core():
         import torch
         assert torch.cuda.is_available()
     except:
-        mprinterr('Torch is not able to use GPU')
+        logcore_err('Torch is not able to use GPU')
         sys.exit(1)
 
     if not is_installed("clip"):
         pipargs(f"install {clip_package}", "clip")
 
 
-def sigint_handler(sig, frame):
-    print(f'Interrupted with signal {sig} in {frame}')
-    os._exit(0)
-
-
-def init():
-    global cargs
-
-    # Disable annoying message 'Some weights of the model checkpoint at openai/clip-vit-large-patch14 were not used ...'
-    from transformers import logging
-    logging.set_verbosity_error()
-
-    # CTRL-C handler
-    signal.signal(signal.SIGINT, sigint_handler)
-
-    print_info()
-    # Memory monitor
-    # mem_mon = memmon.MemUsageMonitor("MemMon", devicelib.device, options.opts)  # TODO remove options
-    # mem_mon.start()
-
-    # 1. Prepare args
-    # ----------------------------------------
-    args = shlex.split(commandline_args)
-    sys.argv += args
-    cargs = cparse.parse_args(args)
-
-    install_core()
-
-    # Prepare plugin system
-    # ----------------------------------------
+def download_plugins():
     print()
-    mprint(chalk.green_bright("1. Downloading plugins"))
+    logcore(chalk.green_bright("1. Downloading plugins"))
     plugins.download(user_conf.install)
 
+
+def create_plugins():
     print()
-    mprint(chalk.green_bright("2. Initializing plugins"))
+    logcore(chalk.green_bright("2. Initializing plugins"))
+    plugins.load_plugins_by_url(user_conf.startup)
 
-    plugins.load_urls(user_conf.startup)
 
-    jobs = plugins.get_jobs()
-    if len(jobs) > 0:
-        mprint(f"Found {len(jobs)} jobs:")
-        for j in jobs:
-            if not user_conf.print_more:
-                mprint(f" - {j.jid}")
-            else:
-                mprint(f" - {j.jid} ({j.func})")
-
-    # Installations
-    # ----------------------------------------
-
+def install_plugins():
     print()
-    mprint(chalk.green_bright("3. Installing plugins..."))
+    logcore(chalk.green_bright("3. Installing plugins..."))
     plugins.broadcast("install", msg="{id}")
 
-    # Loading plugins
-    # ----------------------------------------
+
+def launch_plugins():
     print()
-    mprint(chalk.green_bright("4. Loading plugins..."))
+    logcore(chalk.green_bright("4. Loading plugins..."))
     plugins.broadcast("load", "{id}")
 
-    print()
-    mprint("All ready!")
+
+def log_jobs():
+    jobs = plugins.get_jobs()
+    if len(jobs) > 0:
+        logcore(f"Found {len(jobs)} jobs:")
+        for j in jobs:
+            if not user_conf.print_more:
+                logcore(f" - {j.jid}")
+            else:
+                logcore(f" - {j.jid} ({j.func})")
 
 
-mprint = printlib.make_print("core")
-mprinterr = printlib.make_printerr("core")
 torch_command = os.environ.get('TORCH_COMMAND', "pip install torch==1.12.1+cu113 torchvision==0.13.1+cu113 --extra-index-url https://download.pytorch.org/whl/cu113")
 clip_package = os.environ.get('CLIP_PACKAGE', "git+https://github.com/openai/CLIP.git@d50d76daa670286dd6cacf3bcd80b5e4823fc8e1")
 requirements_file = os.environ.get('REQS_FILE', "../requirements_versions.txt")

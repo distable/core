@@ -1,141 +1,56 @@
-import re
-from datetime import datetime
-from pathlib import Path
-
 from PIL.Image import Image
 
-from src_core import jobs, paths, plugins, printlib
-from src_core.jobs import JobParams
-from src_core.PipeData import PipeData
-
-mprint = printlib.make_print("session")
-mprinterr = printlib.make_printerr("session")
-
-
-# region Library
-class Session:
-    def __init__(self, name=None, path: Path | str = None):
-        self.data = PipeData()
-        self.jobs = []
-
-        if name is not None:
-            self.name = name
-            self.path = paths.sessions / name
-        elif path is not None:
-            self.path = Path(path)
-            self.name = Path(path).stem
-        else:
-            self.valid = False
-            mprinterr("Cannot create session! No name or path given!")
-            return
-
-        if not self.path.exists():
-            mprint("New session:", self.name)
-        else:
-            self.load_if_exists()
-
-    def create_if_missing(self):
-        if not self.path.exists():
-            self.path.mkdir(parents=True)
-
-    def load_if_exists(self):
-        if self.path.exists():
-            mprint(f"Loading session: {self.name}")
-            # TODO load a session metadata file
-
-    def save_next(self, dat):
-        path = self.path / str(get_next_leadnum(self.path, ''))
-        self.save(dat, path)
-
-    def save(self, dat, path):
-        if isinstance(dat, list):
-            for d in dat:
-                self.save_next(d)
-        elif isinstance(dat, Image):
-            self.create_if_missing()
-            dat.save(path.with_suffix(".png"))
-            print(f"Saved pil/image to {path.with_suffix('.png')}")
-        elif dat is None:
-            pass
-        else:
-            mprinterr("Cannot save! unknown data type:", type(dat))
-
-    def add_job(self, j):
-        self.jobs.append(j)
-
-    def rem_job(self, j):
-        self.jobs.remove(j)
-
-
-def get_next_leadnum(iterator=None, separator='_'):
-    """
-    Find the largest 'leading number' in the directory names and return it
-    e.g.:
-    23_session
-    24_session
-    28_session
-    23_session
-
-    return value is 28
-    """
-    iterator = iterator if iterator is not None else paths.sessions.iterdir()
-
-    if isinstance(iterator, Path):
-        if not iterator.exists():
-            return 1
-        iterator = iterator.iterdir()
-
-    biggest = 0
-    for path in iterator:
-        if not path.is_dir():
-            match = re.match(r"^(\d+)" + separator, path.name)
-            if match is not None:
-                num = int(match.group(1))
-                if match:
-                    biggest = max(biggest, num)
-
-    return biggest + 1
-
-
-def format_session_id(name, num=None):
-    if num is None:
-        num = get_next_leadnum()
-
-    return f"{num:0>3}_{name}"
-
-
-# endregion
-
-# region API
-def new_timestamp():
-    """
-    Returns: A new session which is timestamped, e.g.
-    """
-    return Session(format_session_id(datetime.now().strftime("%Y-%m-%d_%H-%M-%S")))
+from src_core import jobs, plugins
+from src_core.classes.prompt_job import prompt_job
+from src_core.classes.JobParams import JobParams
+from src_core.classes.Session import Session
+from src_core.logs import logsession
 
 
 def job(query: str | JobParams, **kwargs):
+    """
+    Run a job in the current session.
+    Args:
+        query:
+        **kwargs:
+
+    Returns:
+
+    """
     def handler(dat):
+        # Image output is moved into the context
+        if isinstance(dat, Image):
+            current.context.image = dat
+        elif isinstance(dat, list) and isinstance(dat[0], Image):
+            current.context.image = dat[0]
+
+        # Prompt output is copied into the context
+        dat = handler
+        if isinstance(j.params, prompt_job) and isinstance(dat, str):
+            current.context.prompt = j.params.prompt
+
+        # and also saved to disk
         current.save_next(dat)
 
-    j = plugins.new_job(query, print=mprint, **kwargs)
-    j.handler = handler
-    ret = jobs.enqueue(j)
+    j = plugins.new_job(query, **kwargs)
 
-    current.save_next(ret)
+    # Prompt input is copied into the context
+    j.handler = handler
+    if hasattr(j.params, 'prompt') and j.params.prompt:
+        current.context.prompt = j.params.prompt
+
+    current.add_job(j)
+    ret = jobs.enqueue(j)
     print("")
 
 
 def run(query: JobParams | str | None = None, **kwargs):
     """
-    Run a job in the session's context, meaning the output JobState data will be saved to disk
+    Run a job in the current session context, meaning the output JobState data will be saved to disk
     """
-    ret = plugins.run(query, print=mprint, **kwargs)
+    ret = plugins.run(query, print=logsession, **kwargs)
     current.save_next(ret)
     print("")
 
 
-# endregion
-
-
-current = new_timestamp()
+current = Session.timestamped_now()

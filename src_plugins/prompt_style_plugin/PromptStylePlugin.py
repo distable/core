@@ -5,13 +5,12 @@ import csv
 import os
 import os.path
 import typing
-import collections.abc as abc
 import tempfile
 import shutil
 from pathlib import Path
 
 from src_core import paths
-from src_core.plugins import Plugin
+from src_core.classes.Plugin import Plugin
 
 if typing.TYPE_CHECKING:
     # Only import this when code is being type-checked, it doesn't have any effect at runtime

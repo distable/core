@@ -51,6 +51,7 @@ def make_printerr(module_name):
 
     return ret
 
+
 def print_info():
     from src_core.installing import git
     try:
@@ -59,5 +60,6 @@ def print_info():
         commit = "<none>"
     print(f"Python: {sys.version}")
     print(f"Revision: {commit}")
+
 
 progress_print_out = sys.stdout

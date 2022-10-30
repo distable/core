@@ -5,22 +5,16 @@ from collections import defaultdict
 import torch
 
 
-class MemUsageMonitor(threading.Thread):
-    run_flag = None
-    device = None
-    disabled = False
-    opts = None
-    data = None
-
-    def __init__(self, name, device, opts):
+class MemMon(threading.Thread):
+    def __init__(self, name, device, poll_rate):
         threading.Thread.__init__(self)
         self.name = name
         self.device = device
-        self.opts = opts
 
         self.daemon = True
         self.run_flag = threading.Event()
         self.data = defaultdict(int)
+        self.poll_rate = poll_rate
 
         try:
             torch.cuda.mem_get_info()
@@ -39,7 +33,7 @@ class MemUsageMonitor(threading.Thread):
             torch.cuda.reset_peak_memory_stats()
             self.data.clear()
 
-            if self.opts.memmon_poll_rate <= 0:
+            if self.poll_rate <= 0:
                 self.run_flag.clear()
                 continue
 
@@ -49,7 +43,7 @@ class MemUsageMonitor(threading.Thread):
                 free, total = torch.cuda.mem_get_info()  # calling with self.device errors, torch bug?
                 self.data["min_free"] = min(self.data["min_free"], free)
 
-                time.sleep(1 / self.opts.memmon_poll_rate)
+                time.sleep(1 / self.poll_rate)
 
     def dump_debug(self):
         print(self, 'recorded data:')

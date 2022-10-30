@@ -9,13 +9,13 @@ from tqdm import tqdm
 
 import src_plugins.sd1111_plugin.SDState
 from src_core.installing import mvfiles
-from src_core import modellib
-from shared import cmd_opts, opts, device
+from src_core.lib import modellib
+from shared import opts, device
 from src_core.plugins import SwinIR as net
 from src_core.plugins import Swin2SR as net2
 from old.upscaler import Upscaler, UpscalerData
 from src_core.paths import root, modeldir
-from src_core.plugins import Plugin
+from src_core.classes.Plugin import Plugin
 
 precision_scope = (
     torch.autocast if src_plugins.sd1111_plugin.SDState.precision == "autocast" else contextlib.nullcontext
@@ -124,7 +124,7 @@ def upscale(
         img = torch.cat([img, torch.flip(img, [3])], 3)[:, :, :, : w_old + w_pad]
         output = inference(img, model, tile, tile_overlap, window_size, scale)
         output = output[..., : h_old * scale, : w_old * scale]
-        output = output.data.squeeze().float().cpu().clamp_(0, 1).numpy()
+        output = output.context.squeeze().float().cpu().clamp_(0, 1).numpy()
         if output.ndim == 3:
             output = np.transpose(
                 output[[2, 1, 0], :, :], (1, 2, 0)

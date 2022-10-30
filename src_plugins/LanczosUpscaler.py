@@ -1,5 +1,5 @@
 from old.upscaler import LANCZOS, UpscalerData
-from src_core.plugins import Plugin
+from src_core.classes.Plugin import Plugin
 
 
 class LanczosUpscaler(Plugin):

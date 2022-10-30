@@ -33,7 +33,7 @@ def check_run(command):
 
 
 def pipargs(args, desc=None):
-    return run(f'"{python}" -m pip {args} --prefer-binary', desc=f"Installing {desc}", errdesc=f"Couldn't install {desc}")
+    return run(f'"{python}" -m pip {args} --prefer-binary', desc=f"Installing {desc}", err=f"Couldn't install {desc}")
 
 
 def pipinstall(package, desc=None):
@@ -49,16 +49,17 @@ def check_run_python(code):
     return check_run(f'"{python}" -c "{code}"')
 
 
-def run(command, desc=None, errdesc=None):
-    if user_conf.print_more:
-        print(f"  >> {command}")
-    elif desc is not None:
-        print(desc)
+def run(command, log: bool | str | None = False, err=None):
+    if log:
+        if isinstance(log, str):
+            print(log)
+        elif log is True:
+            print(f"  >> {command}")
 
     result = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
 
     if result.returncode != 0:
-        message = f"""{errdesc or 'Error running command'}.
+        message = f"""{err or 'Error running command'}.
 Command: {command}
 Error code: {result.returncode}
 stdout: {result.stdout.decode(encoding="utf8", errors="ignore") if len(result.stdout) > 0 else '<empty>'}
@@ -81,13 +82,13 @@ def gitclone(giturl, hash='master', repodir=None, name=None):
     if not repodir.exists():
         run(f'"{git}" clone {giturl} {Path(repodir)}')
     else:
-        current_hash = run(f'"{git}" -C {repodir} rev-parse HEAD', None, f"Couldn't determine {name}'s hash: {hash}").strip()
+        current_hash = run(f'"{git}" -C {repodir} rev-parse HEAD', err=f"Couldn't determine {name}'s hash: {hash}").strip()
         if current_hash != hash:
-            run(f'"{git}" -C {repodir} fetch', f"Fetching updates for {name}...", f"Couldn't fetch {name}")
+            run(f'"{git}" -C {repodir} fetch', err=f"Couldn't fetch {name}")
             # print(giturl, clonedir, name, commithash)
 
             if hash is not None and hash != 'master':
-                run(f'"{git}" -C {repodir} checkout {hash}', f"Checking out commit for {name} with hash: {hash}...", f"Couldn't checkout {name}'s hash: {hash}")
+                run(f'"{git}" -C {repodir} checkout {hash}', err=f"Couldn't checkout {name}'s hash: {hash}")
 
     sys.path.append(repodir.as_posix())
 

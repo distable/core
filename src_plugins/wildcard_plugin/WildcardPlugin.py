@@ -4,8 +4,10 @@ import re
 from munch import Munch
 
 import user_conf
-from src_core.jobs import JobParams, prompt_job
-from src_core.plugins import Plugin, plugjob
+from src_core.classes.prompt_job import prompt_job
+from src_core.classes.JobParams import JobParams
+from src_core.plugins import plugjob
+from src_core.classes.Plugin import Plugin
 
 all_wildcards: dict[str, list[str]] = Munch()
 

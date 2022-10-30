@@ -1,5 +1,6 @@
-from src_core.jobs import JobPipe
-from src_core.plugins import Plugin
+from src_core.classes.JobPipe import JobPipe
+from src_core.classes.Plugin import Plugin
+
 
 class Macro:
     def __init__(self, name, jobs=None):

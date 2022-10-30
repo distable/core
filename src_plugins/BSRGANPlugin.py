@@ -8,7 +8,8 @@ import torch
 from basicsr.utils.download_util import load_file_from_url
 
 import old.upscaler
-from src_core import modellib, devicelib
+from src_core import devicelib
+from src_core.lib import modellib
 from BSRGANPlugin_arch import RRDBNet
 
 
