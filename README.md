@@ -18,25 +18,27 @@ Like demoscene, we dogfood the hell out of it.
 
 NOTE: currently there may be unexpected errors
 
-1. clone the repository somewhere on your drive.
+1. Download and extract into a directory.
 
-2. Setup your `user_config.py` file in the root of the directory, see an example below
+2. Setup a minimal `user_conf.py`:
 
 ```py
 ip = '0.0.0.0'
 port = 5000
 
 # Plugins to install
-plugins = ['stablecore-ai/sd1111_plugin']
+install = ['distable/sd1111_plugin']
 
 # Plugins to load on startup
 startup = ['sd1111_plugin']
 ```
 
-3. Launch run-server.sh (Linux) or backend.bat (Windows)
+   * Check https://github.com/orgs/distable/repositories for plugins
+   * Check the wiki for some fancy user_conf.py examples.
+
+3. Launch run.sh (Linux) or run.bat (Windows)
 
 ```log
-stable-core  🍣 master 📝 ×11🗃️  ×6🐍 v3.10.6  took 1m49s
 ❯ ./run.sh
 Python: 3.10.6 (main, Aug  3 2022, 17:39:45) [GCC 12.1.1 20220730]
 Revision: <none>
@@ -52,17 +54,12 @@ Checking out commit for sd1111_plugin with hash: /home/nuck/stable-core/src_plug
 [core]  - dream
 [core]  - sd1111.img2img
 [core]  - sd1111.txt2img
-[core]  - wildcard.add
-[core]  - wildcard.apply
-[core]  - wildcard.rem
 
 [core] 3. Installing plugins...
 [plugin]   - sd1111
-[plugin]   - wildcard
 
 [core] 4. Loading plugins...
 [plugin]   - sd1111
-[plugin]   - wildcard
 [core] All ready!
 [server] Starting ...
 [session] New session: 001_2022-10-29_23-07-55
@@ -74,6 +71,7 @@ p=Woaaa! Kawaii monster by salvador dali
 100%|███████████████████████████████████████████████| 22/22 [00:12<00:00,  1.71it/s]
 
 ```
+
 
 ## Plugin
 
