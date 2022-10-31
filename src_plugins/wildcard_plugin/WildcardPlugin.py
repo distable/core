@@ -57,7 +57,6 @@ class WildcardPlugin(Plugin):
         # Use re.match to match all <word>
         # Replace with random word from all_wildcards[word]
         ret = p.prompt
-        print(ret)
         for match in re.finditer(r"<(\w+)>", ret):
             word = match.group(1)
             if word in all_wildcards:

@@ -24,12 +24,11 @@ def job(query: str | JobParams, **kwargs):
         elif isinstance(dat, list) and isinstance(dat[0], Image):
             current.context.image = dat[0]
 
-        # Prompt output is copied into the context
-        dat = handler
+        # prompt jobs are copied into the context
         if isinstance(j.params, prompt_job) and isinstance(dat, str):
             current.context.prompt = j.params.prompt
 
-        # and also saved to disk
+        # finally save to disk
         current.save_next(dat)
 
     j = plugins.new_job(query, **kwargs)
@@ -41,7 +40,7 @@ def job(query: str | JobParams, **kwargs):
 
     current.add_job(j)
     ret = jobs.enqueue(j)
-    print("")
+    # print("")
 
 
 def run(query: JobParams | str | None = None, **kwargs):
@@ -50,7 +49,7 @@ def run(query: JobParams | str | None = None, **kwargs):
     """
     ret = plugins.run(query, print=logsession, **kwargs)
     current.save_next(ret)
-    print("")
+    # print("")
 
 
-current = Session.timestamped_now()
+current = Session.now_or_recent()

@@ -1,7 +1,6 @@
 import argparse
 import os
 import shlex
-import signal
 import sys
 
 import user_conf
@@ -10,7 +9,7 @@ from src_core.classes import paths
 from src_core.classes.MemMon import MemMon
 from src_core.installing import is_installed, pipargs, python, run
 from src_core.lib import devices
-from src_core.classes.printlib import print_info
+from src_core.classes.printlib import print_info, setup_ctrl_c
 from src_core.classes.logs import logcore, logcore_err
 
 from yachalk import chalk
@@ -26,15 +25,6 @@ def setup_annoying_logging():
     # Disable annoying message 'Some weights of the model checkpoint at openai/clip-vit-large-patch14 were not used ...'
     from transformers import logging
     logging.set_verbosity_error()
-
-
-def setup_ctrl_c():
-    def sigint_handler(sig, frame):
-        print(f'Interrupted with signal {sig} in {frame}')
-        os._exit(0)
-
-    # CTRL-C handler
-    signal.signal(signal.SIGINT, sigint_handler)
 
 
 def setup_memmon():

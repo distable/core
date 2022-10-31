@@ -8,6 +8,12 @@
 
 from src_core.classes.Munch2 import Munch2
 
+# Do not remove these, we are making them available by default in user_conf.py
+from munch import Munch
+import random
+
+
+
 ip = '0.0.0.0'
 port = 5000
 

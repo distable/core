@@ -5,6 +5,8 @@ import click
 from click_shell import shell
 
 # @click.group()  # no longer
+from src_core.classes import paths
+from src_core.classes.Session import Session
 
 bg_jobs = False
 
@@ -24,18 +26,16 @@ def run():
     for jid in short_jids:
         ifo = plugins.get_job(jid, short=True)
 
-        print(jid, ifo.jid)
+        # print(jid, ifo.jid)
 
         # The template function for every short_jid
         def job_cmd(c, **kwargs):
             kw = dict()
             for a in c.args:
-                print(a)
                 kw.update([a.split('=')])
 
             # plugins.run(cmd='txt2img', **kw)
-            # print(ifo.jid)
-            sessions.job(plugins.new_params(ifo.jid, kw))
+            sessions.job(plugins.new_params(c.command.name, kwargs=kw))
 
         # Annotate the function as we normally would with @
         job_cmd = click.pass_context(job_cmd)
@@ -52,14 +52,60 @@ def run():
 
 @run.command("exit")
 def exit_cmd():
+    """
+    Exit the shell
+    """
     exit(0)
 
 
 @run.command("bg")
 def bg():
+    """
+    Put jobs in the background.
+    """
     global bg_jobs
     bg_jobs = True
 
+
+@run.command("fg")
+def fg():
+    """
+    Put jobs in the foreground.
+    """
+    global bg_jobs
+    bg_jobs = True
+
+
+@run.command()
+def session(name=None):
+    """
+    Create a new timestamped session, or load an existing one.
+    Args:
+        name: the name of the session to load. If not provided, a new session will be created.
+    """
+    from src_core import sessions
+    if name is None:
+        sessions.current = Session.now()
+    else:
+        if Path(name).exists():
+            sessions.current = Session(path=name)
+        else:
+            sessions.current = Session(name)
+
+
+@run.command()
+def reload_conf():
+    """
+    # Re-execute user_conf.py
+    """
+    path = paths.root / 'user_conf.py'
+    exec(path.read_text())
+
+
+# @run.command()
+# def session():
+#     from src_core import sessions
+#     sessions.current = Session.now()
 
 # @run.command("server")
 # @run.command(context_settings=dict(ignore_unknown_options=True, allow_extra_args=True))
