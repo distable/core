@@ -16,7 +16,7 @@ Like demoscene, we dogfood the hell out of it.
 
 ## Installation
 
-NOTE: currently there may be unexpected errors
+NOTE: currently there may be unexpected errors and computers explosion
 
 1. Download and extract into a directory.
 
