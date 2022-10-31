@@ -8,8 +8,7 @@ import src_plugins.sd1111_plugin.options
 from src_core.installing import mvfiles
 from old.upscaler import Upscaler, UpscalerData
 from src_core.plugins import LDSR
-import shared
-from src_core.paths import root, modeldir
+from src_core.classes.paths import root, modeldir
 
 
 class LDSRPlugin(Upscaler):

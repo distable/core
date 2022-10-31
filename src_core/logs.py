@@ -1,4 +1,4 @@
-from src_core.lib import printlib
+from src_core.classes import printlib
 
 logsession = printlib.make_print("session")
 logsession_err = printlib.make_printerr("session")

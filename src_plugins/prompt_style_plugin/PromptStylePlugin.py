@@ -9,7 +9,7 @@ import tempfile
 import shutil
 from pathlib import Path
 
-from src_core import paths
+from src_core.classes import paths
 from src_core.classes.Plugin import Plugin
 
 if typing.TYPE_CHECKING:

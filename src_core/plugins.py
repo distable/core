@@ -7,15 +7,16 @@ from pathlib import Path
 from yachalk.ansi import Color, wrap_ansi_16
 
 import user_conf
-from src_core import installing, jobs, paths
+from src_core import installing, jobs
+from src_core.classes import paths
 from src_core.classes.Job import Job
 from src_core.classes.JobInfo import JobInfo
 from src_core.classes.JobParams import JobParams
 from src_core.classes.Plugin import Plugin
 from src_core.classes.PlugjobDeco import PlugjobDeco
 from src_core.logs import logplugin, logplugin_err
-from src_core.paths import short_pid, split_jid
-from src_core.lib.printlib import print_bp
+from src_core.classes.paths import short_pid, split_jid
+from src_core.classes.printlib import print_bp
 
 # STATE
 # ----------------------------------------

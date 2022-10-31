@@ -9,7 +9,7 @@ import src_plugins.sd1111_plugin.options
 from src_plugins import shared
 from src_core import devicelib
 from src_core.lib import modellib
-from src_core.paths import modeldir
+from src_core.classes.paths import modeldir
 from shared import cmd_opts
 
 from src_core.installing import *

@@ -10,7 +10,7 @@ from src_core import plugins as arch, devicelib
 from src_core.lib import modellib
 from old.upscaler import Upscaler, UpscalerData
 from shared import opts
-from src_core.paths import root, modeldir
+from src_core.classes.paths import root, modeldir
 
 
 def fix_model_layers(crt_model, pretrained_net):

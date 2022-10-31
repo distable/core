@@ -5,11 +5,12 @@ import signal
 import sys
 
 import user_conf
-from src_core import paths, plugins
+from src_core import plugins
+from src_core.classes import paths
 from src_core.classes.MemMon import MemMon
 from src_core.installing import is_installed, pipargs, python, run
 from src_core.lib import devices
-from src_core.lib.printlib import print_info
+from src_core.classes.printlib import print_info
 from src_core.logs import logcore, logcore_err
 
 from yachalk import chalk

@@ -5,8 +5,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-import user_conf
-from src_core import paths
+from src_core.classes import paths
 
 git = os.environ.get('GIT', "git")
 python = sys.executable

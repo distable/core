@@ -14,7 +14,7 @@ from shared import opts, device
 from src_core.plugins import SwinIR as net
 from src_core.plugins import Swin2SR as net2
 from old.upscaler import Upscaler, UpscalerData
-from src_core.paths import root, modeldir
+from src_core.classes.paths import root, modeldir
 from src_core.classes.Plugin import Plugin
 
 precision_scope = (

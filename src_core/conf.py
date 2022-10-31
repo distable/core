@@ -6,9 +6,7 @@
 # from src_core.conf import *
 # --------------------------------------------------------------------------------
 
-import random
-from munch import Munch
-from src_core.lib.Munch2 import Munch2
+from src_core.classes.Munch2 import Munch2
 
 ip = '0.0.0.0'
 port = 5000
