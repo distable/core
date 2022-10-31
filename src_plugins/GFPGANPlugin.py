@@ -6,7 +6,7 @@ import gfpgan
 import src_plugins.sd1111_plugin.options
 from src_core import devicelib
 from src_core.lib import modellib
-from src_core.paths import modeldir, root
+from src_core.classes.paths import modeldir, root
 from src_core.installing import *
 from shared import cmd_opts
 

@@ -4,7 +4,7 @@ from tqdm import tqdm
 
 from src_core.classes.Job import Job
 from src_core.classes.JobQueue import JobQueue
-from src_core.lib.printlib import progress_print_out
+from src_core.classes.printlib import progress_print_out
 
 
 def get(jobid):

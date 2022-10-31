@@ -15,7 +15,8 @@ import shared as shared
 import src_plugins.sd1111_plugin.options
 import src_plugins.sd1111_plugin.SDState
 from src_core.installing import gitclone, repo_dir
-from src_core import paths, devicelib
+from src_core import devicelib
+from src_core.classes import paths
 from src_plugins.sd1111_plugin import modelsplit
 
 blip_image_eval_size = 384
