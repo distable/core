@@ -1,10 +1,8 @@
 # stable-core
 
-**stable-core** is a backend server for AI art with plugins and UIs, your swiss-army knife and package manager to media synthesis. We cover every use case, from ordinary artists to intense creative coders.
+**stable-core** is a backend server for AI art with plugins and GUIs to use, the ultimate swiss-army knife to media synthesis. We cover every use case, from ordinary artists to intense creative coders.
 
 **AI art and models, GUIs, animation, prompt engineering, audio-reactivity, iterating, experimenting, rendering, math functions, multi-modality,** everything is covered by stable-core and it all chains together. The amazing entourage effect of our components encourages developers implement all their best ideas and models as a stable-core plugin. 
-
-Like demoscene, we dogfood the hell out of it.
 
 # Components
 
