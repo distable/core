@@ -4,7 +4,7 @@ from src_core import jobs, plugins
 from src_core.classes.prompt_job import prompt_job
 from src_core.classes.JobParams import JobParams
 from src_core.classes.Session import Session
-from src_core.logs import logsession
+from src_core.classes.logs import logsession
 
 
 def job(query: str | JobParams, **kwargs):

@@ -5,7 +5,7 @@ import flask_socketio as fsock
 from flask import Flask, jsonify
 
 from src_core import jobs, shell
-from src_core.logs import logserver
+from src_core.classes.logs import logserver
 from src_core.plugins import plugins
 
 queue_lock = threading.Lock()

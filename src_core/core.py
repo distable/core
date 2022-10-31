@@ -11,7 +11,7 @@ from src_core.classes.MemMon import MemMon
 from src_core.installing import is_installed, pipargs, python, run
 from src_core.lib import devices
 from src_core.classes.printlib import print_info
-from src_core.logs import logcore, logcore_err
+from src_core.classes.logs import logcore, logcore_err
 
 from yachalk import chalk
 

@@ -14,7 +14,7 @@ from src_core.classes.JobInfo import JobInfo
 from src_core.classes.JobParams import JobParams
 from src_core.classes.Plugin import Plugin
 from src_core.classes.PlugjobDeco import PlugjobDeco
-from src_core.logs import logplugin, logplugin_err
+from src_core.classes.logs import logplugin, logplugin_err
 from src_core.classes.paths import short_pid, split_jid
 from src_core.classes.printlib import print_bp
 
