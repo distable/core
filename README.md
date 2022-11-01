@@ -1,8 +1,11 @@
 # stable-core
 
+**Notice: we are currently under heavy development.**
+
 **stable-core** is a backend server for AI art with plugins and GUIs to use, the ultimate swiss-army knife to media synthesis. We cover every use case, from ordinary artists to intense creative coders.
 
 **AI art and models, GUIs, animation, prompt engineering, audio-reactivity, iterating, experimenting, rendering, math functions, multi-modality,** everything is covered by stable-core and it all chains together. The amazing entourage effect of our components encourages developers implement all their best ideas and models as a stable-core plugin. 
+
 
 # Components
 
@@ -70,6 +73,7 @@ p=Woaaa! Kawaii monster by salvador dali
 
 ```
 
+4. The server is launched on `127.0.0.0:5000` and you may connect with a GUI. An [interactive shell](https://github.com/distable/core/wiki#shell) is also available if you wish to make pictures immediately, type `help` to see commands.
 
 ## Plugin
 
