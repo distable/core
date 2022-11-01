@@ -73,7 +73,7 @@ p=Woaaa! Kawaii monster by salvador dali
 
 ```
 
-4. The server is launched on `127.0.0.0:5000` and you may connect with a GUI. An [interactive shell](https://github.com/distable/core/wiki#shell) is also available if you wish to make pictures immediately, type `help` to see commands.
+4. The server is launched on `127.0.0.0:5000` and you may connect with a GUI. An [interactive shell](https://github.com/distable/core/wiki#shell) is also available if you wish to make art immediately, type `help` to see commands.
 
 ## Plugin
 
