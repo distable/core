@@ -108,7 +108,7 @@ p = core.prompt("A <scale> <glow> galaxy painted by <artist>")
 core.job('txt2img', prompt=p, cfg=7.75, steps=8, sampler='euler-a')
 
 for i in range(1000):
-    core.job('img2img', prompt=p, chg=0.65)
+    core.job('img2img', chg=0.65)
     core.job("mat2d", zoom=0.015)
 ```
 
