@@ -13,7 +13,7 @@
 2. **Sessions:** your outputs are organized and clustered into sessions. A new timestamped session starts when a client connects, and you can re-open old sessions to do more work in them. Could be a prompt engineering session, an animation, a batch of variants, a history for an outpainting project, etc. 
 3. **Jobs:** Generate/transform some data with input/output. 
 4. **Plugins:** they implement models, packages, techniques, features, handle all installation and cloning in a well-defined manner. They plug into the system by providing jobs, which are simply functions. Create a new plugin generated from a template and you can instantly get to work.
-5. **Cloud Deploy:** Instantly render on runpod, vast.ai in just a few clicks. Paste in your SSH information to copy your configuration and your installation will automatically be installed and local jobs are deferred to the instance. The StableHorde is also worth supporting.
+5. **Cloud Deploy:** transparently switch between local & cloud computing with [runpod](https://www.runpod.io/) or [vast.ai](https://vast.ai/).
 
 # Installation
 
