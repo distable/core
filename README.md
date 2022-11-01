@@ -15,7 +15,7 @@
 4. **Plugins:** they implement models, packages, techniques, features, handle all installation and cloning in a well-defined manner. They plug into the system by providing jobs, which are simply functions. Create a new plugin generated from a template and you can instantly get to work.
 5. **Cloud Deploy:** Instantly render on runpod, vast.ai in just a few clicks. Paste in your SSH information to copy your configuration and your installation will automatically be installed and local jobs are deferred to the instance. The StableHorde is also worth supporting.
 
-## Installation
+# Installation
 
 NOTE: currently there may be unexpected errors and computers explosion
 
@@ -64,7 +64,19 @@ Checking out commit for sd1111_plugin with hash: /home/nuck/stable-core/src_plug
 [core] All ready!
 [server] Starting ...
 [session] New session: 001_2022-10-29_23-07-55
+```
 
+   The server is launched on `127.0.0.0:5000`, you may connect with a GUI or use the shell.
+
+
+# Usage
+
+
+## Interactive Shell
+
+An [interactive shell](https://github.com/distable/core/wiki#shell) is available out of the box, type `help` to see commands.
+
+```
 > Enter commands here or use a client ...
 
 > txt2img p="Woaaa! Kawaii monster by salvador dali"
@@ -73,7 +85,33 @@ p=Woaaa! Kawaii monster by salvador dali
 
 ```
 
-4. The server is launched on `127.0.0.0:5000` and you may connect with a GUI. An [interactive shell](https://github.com/distable/core/wiki#shell) is also available if you wish to make art immediately, type `help` to see commands.
+## Graphical User Interface (GUI)
+
+Some GUI clients are available to connect to the core and use it.
+
+* ImGUI
+
+## Bridges
+
+Bridge are another type of client which allow using the core inside an existing GUI, like Photoshop or Blender.
+
+## Code
+
+You can use the core for creative coding.
+
+```
+core.init()
+
+p = core.prompt("A <scale> <glow> galaxy painted by <artist>")
+
+# Create the init image
+core.job('txt2img', prompt=p, cfg=7.75, steps=8, sampler='euler-a')
+
+# 1000 frames of img2img & zoom
+for i in range(1000):
+    core.job('img2img', prompt=p, chg=0.65)
+    core.job("mat2d", zoom=0.015)
+```
 
 ## Plugin
 
