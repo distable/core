@@ -1,4 +1,4 @@
-# stable-core
+# ✨ stable-core
 
 **Notice: we are currently under heavy development.**
 
@@ -7,7 +7,7 @@
 **AI art and models, GUIs, animation, prompt engineering, audio-reactivity, iterating, experimenting, rendering, math functions, multi-modality,** everything is covered by stable-core and it all chains together. The amazing entourage effect of our components encourages developers implement all their best ideas and models as a stable-core plugin. 
 
 
-# Components
+# 🧬 Components
 
 1. **Backend:** The server/client architecture means clients implement UIs or bridge other apps like blender nodes, kdenlive clips, effects, etc.
 2. **Sessions:** your outputs are organized and clustered into sessions. A new timestamped session starts when a client connects, and you can re-open old sessions to do more work in them. Could be a prompt engineering session, an animation, a batch of variants, a history for an outpainting project, etc. 
@@ -15,7 +15,7 @@
 4. **Plugins:** they implement models, packages, techniques, features, handle all installation and cloning in a well-defined manner. They plug into the system by providing jobs, which are simply functions. Create a new plugin generated from a template and you can instantly get to work.
 5. **Cloud Deploy:** transparently switch between local & cloud computing with [runpod](https://www.runpod.io/) or [vast.ai](https://vast.ai/).
 
-# Installation
+# 🚀 Installation
 
 NOTE: currently there may be unexpected errors and computers explosion
 
@@ -69,10 +69,10 @@ Checking out commit for sd1111_plugin with hash: /home/nuck/stable-core/src_plug
    The server is launched on `127.0.0.0:5000`, you may connect with a GUI or use the shell.
 
 
-# Usage
+# 🍻 Usage
 
 
-## Interactive Shell
+## 1. Interactive Shell
 
 An [interactive shell](https://github.com/distable/core/wiki#shell) is available out of the box, type `help` to see commands.
 
@@ -85,17 +85,17 @@ p=Woaaa! Kawaii monster by salvador dali
 
 ```
 
-## Graphical User Interface (GUI)
+## 2. Graphical User Interface (GUI)
 
 Some GUI clients are available to connect to the core and use it.
 
 * ImGUI
 
-## Bridges
+## 3. Bridges
 
 Bridge are another type of client which allow using the core inside an existing GUI, like Photoshop or Blender.
 
-## Code
+## 4. Code
 
 You can use the core for creative coding.
 
@@ -112,7 +112,7 @@ for i in range(1000):
     core.job("mat2d", zoom=0.015)
 ```
 
-## Plugin
+## ⚗ Plugins
 
 This is a preview of the end-game plugin ecosystem, how it will look and feel. We encourage community members to contribute and maintain some of these plugins themselves, or make new ones.
 
@@ -152,15 +152,3 @@ Clients:
    * ImGUI
    * Gradio
    * Blender
-
-# Current roadmap
-
-If I am alone working on this, this will be my roadmap.
-
-1. ~Core backend components (server, jobs, plugins) to a usable state.~
-2. ~Run the StableDiffusionPlugin txt2img job from CLI~
-3. Get the session management working to a tee.
-4. Write a UI to manage sessions and do my work in.
-5. Plugins
-   - Port upscalers from AUTO1111 so we can see the workflow in action.
-   - Port my [disco-party](https://github.com/oxysoft/disco-party/) math plugin with dedicated graphing calculator for audio-reactivity
