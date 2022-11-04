@@ -1,4 +1,4 @@
-# stable-core
+# discore
 
 **stable-core** is a backend server for AI art with plugins and GUIs to use, the ultimate swiss-army knife to media synthesis. Every use case is covered, from ordinary artists to intense creative coders.
 
