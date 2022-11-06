@@ -1,12 +1,12 @@
 import cv2
 from skimage.exposure import match_histograms
 
-from src_core.classes.JobParams import JobParams
+from src_core.classes.JobArgs import JobArgs
 from src_core.plugins import plugjob
 from src_core.classes.Plugin import Plugin
 
 
-class palmatch_job(JobParams):
+class palmatch_job(JobArgs):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 

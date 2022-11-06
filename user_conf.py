@@ -1,20 +1,28 @@
 from src_core.conf import *
 
-# Values
+# Core
 # ----------------------------------------
 
 precision = "full"
 print_timing = False
-print_more = False
+print_extended_init = False
+print_more2 = False
+share=False
 
 # Plugins
 # ----------------------------------------
 
-install = ['distable/sd1111_plugin']
-startup = ['sd1111', 'wildcard']
+sd = plugdef('distable/sd1111_plugin')
+wc = plugload('wildcard')
+mgk = plugload('magick')
+m2d = plugload('math2d')
+m3d = plugload('math3d')
 
-aliases.dream = 'sd1111.txt2img'
-aliases.imagine = 'sd1111.txt2img'
+aliasdef(dream='sd1111.txt2img',
+         imagine='sd1111.txt2img')
+
+sd.medvram = True
+sd.lowvram = True
 
 # Plugin config
 # ----------------------------------------
@@ -26,38 +34,41 @@ prompts = [
     "Inside a strange <pow> contorted psychedelic cave with distance and horizon, airbrushed art, impressionism"
 ]
 
-defaults.sd1111.txt2img = dict(p=lambda: random.choice(prompts), steps=22, cfg=7.65, sampler='euler-a', w=512, h=384)
-defaults.sd1111.img2img = dict(chg=0.65)
+sd.sd_job = dict(prompt=choice(prompts),
+                 steps=17,
+                 cfg=7.65,
+                 sampler='euler-a',
+                 w=512, h=384,
+                 chg=0.65)
 
-wildcards = Munch()
 # wildcards.artist = ['salvador dali', 'picasso', 'mark riddick', 'greg ruktowsky']
-wildcards.artist = ['Aoshima Chiho', 'Arnegger Alois', 'shimoda hikari', 'terry redlin', 'Satoshi Kon', "hayao mizaki", 'rj palmer', 'alex grey', 'salvador dali']
-wildcards.scene = ['realms', 'skies', 'planetary sky']
-wildcards.distance = ['far away', 'in the distance', 'in the horizon']
-wildcards.painted = ['painted', 'drawn', ' inked', 'designed']
-wildcards.cloud = ['stratocumulus', 'altocumulus', 'cumulus', 'nimbostratus', 'cirrocumulus']
-wildcards.glow = ['shining', 'glowing', 'radiating', 'exploding']
-wildcards.blob = ['sun', 'moon', 'face', 'sunset', 'sunrise']
-wildcards.movement = ['surrealism', 'hyperrealism', 'eccentrism']
-wildcards.majestic = ['scenec', 'majestic', 'grandiose', 'picturesque', 'jawdropping']
-wildcards.scale = ['huge', 'big', 'wide', 'scenic', 'large', 'impressive', 'grandiose', 'stunning', 'picturesque']
-wildcards.cursed = ['cursed', 'twisted', 'contorted', 'strange', 'weird', 'rippled']
-wildcards.contort = ['contorted', 'twisted', 'bending', 'uneven', 'chaotic']
-wildcards.magic = ['magical', 'cursed', 'fantasy', 'mystical', 'enchanted']
-wildcards.elaborate = ['elaborate', 'complex', 'detailed']
-wildcards.view = ['shot', 'view']
-wildcards.detail = ['complex', 'intricate', 'detailed']
-wildcards.relate = ['rotating', 'sliding', 'moving', 'exploding', 'displacing', 'changing', 'transfmorphing', 'exchanging', 'expanding', 'stretching', 'condensing', 'tiling', 'alternating', 'juxtaposing', 'overlapping']
-wildcards.pow = ['slightly', 'super', 'very', 'greatly', 'ultra', 'extremely', 'intensely']
-wildcards._ = ["    ", "   ", "  ", " "]
+wc.artist = ['Aoshima Chiho', 'Arnegger Alois', 'shimoda hikari', 'terry redlin', 'Satoshi Kon', "hayao mizaki", 'rj palmer', 'alex grey', 'salvador dali']
+wc.scene = ['realms', 'skies', 'planetary sky']
+wc.distance = ['far away', 'in the distance', 'in the horizon']
+wc.painted = ['painted', 'drawn', ' inked', 'designed']
+wc.cloud = ['stratocumulus', 'altocumulus', 'cumulus', 'nimbostratus', 'cirrocumulus']
+wc.glow = ['shining', 'glowing', 'radiating', 'exploding']
+wc.blob = ['sun', 'moon', 'face', 'sunset', 'sunrise']
+wc.movement = ['surrealism', 'hyperrealism', 'eccentrism']
+wc.majestic = ['scenec', 'majestic', 'grandiose', 'picturesque', 'jawdropping']
+wc.scale = ['huge', 'big', 'wide', 'scenic', 'large', 'impressive', 'grandiose', 'stunning', 'picturesque']
+wc.cursed = ['cursed', 'twisted', 'contorted', 'strange', 'weird', 'rippled']
+wc.contort = ['contorted', 'twisted', 'bending', 'uneven', 'chaotic']
+wc.magic = ['magical', 'cursed', 'fantasy', 'mystical', 'enchanted']
+wc.elaborate = ['elaborate', 'complex', 'detailed']
+wc.view = ['shot', 'view']
+wc.detail = ['complex', 'intricate', 'detailed']
+wc.relate = ['rotating', 'sliding', 'moving', 'exploding', 'displacing', 'changing', 'transfmorphing', 'exchanging', 'expanding', 'stretching', 'condensing', 'tiling', 'alternating', 'juxtaposing', 'overlapping']
+wc.pow = ['slightly', 'super', 'very', 'greatly', 'ultra', 'extremely', 'intensely']
+wc._ = ["    ", "   ", "  ", " "]
 
-wildcards.shard_t = ["mirror", "gemstone", "rock", "artistic"],
-wildcards.coral_t = ["oceanic", "intricate", "brain", "colorful reef", "magical cursed reef"],
-wildcards.mush_t = ["wavy", "droopy", "twisty", "contorted wavy", "marbling", "cursed", "coral"],
-wildcards.wave_t = ["huge", "separating", "ultra", "", "contorted"],
-wildcards.shape = ["tornado", "jungle", "helix", "galaxy"],
-wildcards.texture = ["floral", "florally", "floraling", "inflorescent", "flowery"],
-wildcards.adjective = ['intricate', 'detailed', 'beautiful', 'picturesque', 'immense', 'sunny', 'rainy', "melting", "iridescent", "opalescent", "magical"],
-wildcards.symbol = ['separating', 'repeating', 'alternating', 'overlapping', 'contorting', 'flower', 'vegetation', 'overgrown', 'mechanical'],
-wildcards.tex_layout = ['asymmetric tiling', 'symmetric tiling', 'symmetric', 'asymmetric', 'tiling'],
-wildcards.tex_shape = ['zig-zaggy', 'spiraling', 'contorting', 'stretching', "flower petal", "sunny", "coral", "crystalline water macro"],
+wc.shard_t = ["mirror", "gemstone", "rock", "artistic"]
+wc.coral_t = ["oceanic", "intricate", "brain", "colorful reef", "magical cursed reef"]
+wc.mush_t = ["wavy", "droopy", "twisty", "contorted wavy", "marbling", "cursed", "coral"]
+wc.wave_t = ["huge", "separating", "ultra", "", "contorted"]
+wc.shape = ["tornado", "jungle", "helix", "galaxy"]
+wc.texture = ["floral", "florally", "floraling", "inflorescent", "flowery"]
+wc.adjective = ['intricate', 'detailed', 'beautiful', 'picturesque', 'immense', 'sunny', 'rainy', "melting", "iridescent", "opalescent", "magical"]
+wc.symbol = ['separating', 'repeating', 'alternating', 'overlapping', 'contorting', 'flower', 'vegetation', 'overgrown', 'mechanical']
+wc.tex_layout = ['asymmetric tiling', 'symmetric tiling', 'symmetric', 'asymmetric', 'tiling']
+wc.tex_shape = ['zig-zaggy', 'spiraling', 'contorting', 'stretching', "flower petal", "sunny", "coral", "crystalline water macro"]

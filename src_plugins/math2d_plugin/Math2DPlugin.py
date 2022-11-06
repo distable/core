@@ -5,30 +5,30 @@ import numpy as np
 import PIL
 from PIL.Image import Image
 
-from src_core.classes.JobParams import JobParams
+from src_core.classes.JobArgs import JobArgs
 from src_core.plugins import plugjob
 from src_core.classes.Plugin import Plugin
 
 
-class zoom_job(JobParams):
+class zoom_job(JobArgs):
     def __init__(self, zoom: float, **kwargs):
         super().__init__(**kwargs)
         self.zoom = zoom
 
 
-class rot_job(JobParams):
+class rot_job(JobArgs):
     def __init__(self, rot: float, **kwargs):
         super().__init__(**kwargs)
         self.rot = rot
 
 
-class transform2d_job(JobParams):
-    def __init__(self, x: float = 0, y: float = 0, rot: float = 0, zoom: float = 0, **kwargs):
+class transform2d_job(JobArgs):
+    def __init__(self, x: float = 0, y: float = 0, rot: float = 0, zoom: float = 0, *kargs, **kwargs):
         super().__init__(**kwargs)
         self.x = x
         self.y = y
         self.rot = rot
-        self.zoom = zoom
+        self.zoom = 1 + zoom
 
 
 class Math2DPlugin(Plugin):
@@ -54,8 +54,8 @@ class Math2DPlugin(Plugin):
         pass
 
     @plugjob
-    def transform2d(pil: Image = None, p: transform2d_job = None):
-        # TODO ewwwwwwwwwww
+    def mat2d(self, p: transform2d_job = None):
+        pil = p.input.image
         pil.save('tmp.png')
         img_0 = cv2.imread('tmp.png')
 

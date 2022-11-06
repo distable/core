@@ -4,7 +4,7 @@
 # change the variables in webui-user.sh instead #
 #################################################
 
-LAUNCH_SCRIPT="run_server.py"
+LAUNCH_SCRIPT="run.py"
 
 # Set defaults
 # Install directory without trailing slash
@@ -123,8 +123,8 @@ then
     printf "\n%s\n" "${delimiter}"
     printf "Installing pip requirements"
     printf "\n%s\n" "${delimiter}"
-    pip install -r requirements.txt
+    "${python_cmd}" -m pip install -r requirements.txt
 fi
 
 
-"${python_cmd}" "${LAUNCH_SCRIPT}"
+"${python_cmd}" "${LAUNCH_SCRIPT}" "$@"

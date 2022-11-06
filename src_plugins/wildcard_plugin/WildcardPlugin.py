@@ -5,7 +5,7 @@ from munch import Munch
 
 import user_conf
 from src_core.classes.prompt_job import prompt_job
-from src_core.classes.JobParams import JobParams
+from src_core.classes.JobArgs import JobArgs
 from src_core.plugins import plugjob
 from src_core.classes.Plugin import Plugin
 
@@ -14,7 +14,7 @@ all_wildcards: dict[str, list[str]] = Munch()
 if hasattr(user_conf, 'wildcards'):
     all_wildcards = user_conf.wildcards
 
-class add_params(JobParams):
+class add_params(JobArgs):
     def __init__(self, wname: str, pool: list[str], **kwargs):
         super().__init__(**kwargs)
         self.name = wname
@@ -24,7 +24,7 @@ class add_params(JobParams):
             self.pool = kwargs['csv'].split(',')
 
 
-class rem_params(JobParams):
+class rem_params(JobArgs):
     def __init__(self, wname: str, **kwargs):
         super().__init__(**kwargs)
         self.name = wname

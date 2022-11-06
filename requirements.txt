@@ -1,3 +1,5 @@
+torch
+torchvision
 basicsr~=1.4.2
 diffusers~=0.3.0
 fairscale~=0.4.9
@@ -15,7 +17,6 @@ realesrgan~=0.3.0
 scikit-image>=0.19
 timm~=0.6.7
 transformers==4.19.2
-torch~=1.12.1+cu113
 einops~=0.4.1
 jsonmerge~=1.8.0
 clean-fid
@@ -34,7 +35,6 @@ terminal-img
 yachalk~=0.1.5
 munch~=2.5.0
 tqdm~=4.64.1
-torchvision~=0.13.1+cu113
 setuptools~=63.2.0
 scipy~=1.9.2
 clip~=1.0
@@ -46,3 +46,8 @@ lpips~=0.1.4
 gdown~=4.5.1
 facexlib~=0.2.5
 opencv-python
+py-jsonic
+gevent
+gevent-websocket
+beeprint
+art

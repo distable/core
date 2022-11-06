@@ -3,7 +3,7 @@ import multiprocessing
 import time
 
 from src_core.installing import pipargs
-from run_server import is_installed
+from run import is_installed
 from src_core.classes.Plugin import Plugin
 
 

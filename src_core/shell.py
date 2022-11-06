@@ -5,6 +5,7 @@ import click
 from click_shell import shell
 
 # @click.group()  # no longer
+import src_core.core
 from src_core.classes import paths
 from src_core.classes.Session import Session
 
@@ -18,7 +19,7 @@ def cli():
 
 @shell(prompt='\n> ')
 def run():
-    from src_core import plugins, sessions
+    from src_core import plugins
     def flatten(l):
         return [item for sublist in l for item in sublist]
 
@@ -26,28 +27,25 @@ def run():
     for jid in short_jids:
         ifo = plugins.get_job(jid, short=True)
 
-        # print(jid, ifo.jid)
-
-        # The template function for every short_jid
-        def job_cmd(c, **kwargs):
+        # The command function for every shortjid
+        # noinspection PyRedeclaration
+        def cmdfunc(c, **kwargs):
             kw = dict()
             for a in c.args:
                 kw.update([a.split('=')])
-
-            # plugins.run(cmd='txt2img', **kw)
-            sessions.job(plugins.new_params(c.command.name, kwargs=kw))
+            src_core.core.job(plugins.new_args(c.command.name, kwargs=kw), bg=bg_jobs)
 
         # Annotate the function as we normally would with @
-        job_cmd = click.pass_context(job_cmd)
-        job_cmd = run.command(jid, context_settings=dict(ignore_unknown_options=True, allow_extra_args=True))(job_cmd)
+        cmdfunc = click.pass_context(cmdfunc)
+        cmdfunc = run.command(jid, context_settings=dict(ignore_unknown_options=True, allow_extra_args=True))(cmdfunc)
 
+        # Add argument documentation
         pclasses = ifo.get_paramclass()
         pclasses = [pclasses, *inspect.getmro(ifo.get_paramclass())]
 
         args = flatten([inspect.signature(cls).parameters.values() for cls in pclasses])
-        # print(args)
         for arg in args:
-            job_cmd = click.option(f'--{arg.name}', required=False, type=arg.annotation)(job_cmd)
+            cmdfunc = click.option(f'--{arg.name}', required=False, type=arg.annotation)(cmdfunc)
 
 
 @run.command("exit")
@@ -83,14 +81,13 @@ def session(name=None):
     Args:
         name: the name of the session to load. If not provided, a new session will be created.
     """
-    from src_core import sessions
     if name is None:
-        sessions.current = Session.now()
+        src_core.core.gsession = Session.now()
     else:
         if Path(name).exists():
-            sessions.current = Session(path=name)
+            src_core.core.gsession = Session(path=name)
         else:
-            sessions.current = Session(name)
+            src_core.core.gsession = Session(name)
 
 
 @run.command()

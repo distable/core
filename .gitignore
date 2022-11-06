@@ -13,6 +13,7 @@ __pycache__
 /config.json
 /log
 /webui.settings.bat
+/plug-res/
 /plug-res/plug-models
 /plug-res/plug-embeddings
 /plug-repos

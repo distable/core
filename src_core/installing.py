@@ -47,7 +47,6 @@ def pipreqs(file):
 def check_run_python(code):
     return check_run(f'"{python}" -c "{code}"')
 
-
 def run(command, log: bool | str | None = False, err=None):
     if log:
         if isinstance(log, str):
@@ -121,3 +120,32 @@ def gitclone(giturl, hash='master', repodir=None, name=None):
                     shutil.rmtree(src_path, True)
         except:
             pass
+
+
+def print_info():
+    from src_core.installing import git
+    try:
+        commit = run(f"{git} rev-parse HEAD").strip()
+    except Exception:
+        commit = "<none>"
+    print(f"Python: {sys.version}")
+    print(f"Revision: {commit}")
+
+
+def open_explorer(directory):
+    if sys.platform == 'win32':
+        subprocess.Popen(['start', directory], shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
+    elif sys.platform == 'darwin':
+        subprocess.Popen(['open', directory], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
+    else:
+        try:
+            subprocess.Popen(['xdg-open', directory], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        except OSError:
+            pass
+            # er, think of something else to try
+            # xdg-open *should* be supported by recent Gnome, KDE, Xfce
+
+
+print()

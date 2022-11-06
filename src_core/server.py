@@ -2,11 +2,56 @@ import sys
 import threading
 
 import flask_socketio as fsock
-from flask import Flask, jsonify
+from flask import Flask, request
+from jsonic import serialize
 
-from src_core import jobs, shell
+import src_core.core
+import user_conf
+from src_core import jobs, plugins, shell
 from src_core.classes.logs import logserver
-from src_core.plugins import plugins
+from src_core.classes.Session import Session
+from src_core.jobs import running
+
+
+class _Client:
+    def __init__(self, sid):
+        self.sid = sid
+        self.session = Session.now(prefix=sid)
+
+    def emit(self, event, data, *args, **kwargs):
+        sock.emit(event, serialize(data), room=self.sid, *args, **kwargs)
+
+    def __repr__(self):
+        return f"Client({self.sid})"
+
+    def __str__(self):
+        return self.__repr__()
+
+
+# noinspection PyPep8Naming
+def Client(sid=None):
+    """
+    A client functoin which returns a class for the current request.sid or a specific SID.
+    """
+    if not user_conf.share:
+        return _Client("local")
+    if sid is None:
+        sid = request.sid
+    if sid not in clients:
+        clients[sid] = _Client(sid)
+    return clients[sid]
+
+
+def serialized(fn):
+    """
+    A decorator which wraps the return value of fn with serialize(...)
+    """
+
+    def wrapper(*args, **kwargs):
+        return serialize(fn(*args, **kwargs))
+
+    return wrapper
+
 
 queue_lock = threading.Lock()
 
@@ -14,11 +59,12 @@ app = Flask(__name__)
 sock = fsock.SocketIO(app)
 
 app.config['SECRET_KEY'] = 'supersecretidkwtfthisisfor!'
+clients = {}
 
 
-def emit(event, *args, **kwargs):
+def emit(event, data, *args, **kwargs):
     with queue_lock:
-        sock.emit(event, *args, **kwargs)
+        sock.emit(event, serialize(data), *args, **kwargs)
 
 
 @app.route('/')
@@ -26,98 +72,64 @@ def index():
     return "Hello from stable-core!"
 
 
-@sock.on('connect')
+@sock.on
 def connect():
     logserver('Client connected')
+    Client()
+    emit('handshake', dict(plugins=plugins.plugins, jobs=plugins.get_jobs()))
 
 
-@sock.on('disconnect')
+@sock.on
 def disconnect():
+    clients.pop(request.sid)
     logserver('Client disconnected')
 
 
 # API
 # ----------------------------------------
 
-@app.route('/plugins')
-def list_plugins():
-    return jsonify(list_plugin_ids())
+@sock.on
+@serialized
+def abort_job(uid):
+    jobs.abort(uid)
 
 
-@sock.on('list_plugins')
-def list_plugins():
-    """ Send an array of plugin IDs """
-    import src_core.plugins
-    data = [extract_dict(x, 'id') for x in src_core.plugins.plugins]
-    emit('list_plugins', jsonify(data))
-
-
-@sock.on('list_plugin_ids')
-def list_plugin_ids():
+@sock.on
+@serialized
+def start_job(jargs):
     """
-    Return a list of all plugins (string IDs only)
+    Start a job
     """
-    return [plug.id for plug in plugins]
+    src_core.core.job(jargs, session=Client().session)
 
 
-# @socketio.on('plugin_call')
-# def plugin_call(js):
-#     """
-#     An API message with socketio to call a plugin and optionally add a job
-#     """
-#     import src_core.plugins
-#
-#     msg = json.loads(js)
-#     pid = msg['plugin_id']
-#     fname = msg['plugin_func']
-#     args = msg['args']
-#     kwargs = msg['kwargs']
-#
-#     src_core.plugins.invoke(pid, fname, *args, **kwargs)
-
-
-@sock.on('list_jobs')
-def list_jobs():
-    return jsonify(list_plugin_ids())
-
-
-# @socketio.on('list_running_jobs')
-# def list_running_jobs():
-#     return
-
-@sock.on('abort_job')
-def abort_job(job):
-    if jobs.is_running(job):
-        jobs.queue.abort(job)
-
-
-@sock.on('any_running')
+@sock.on
+@serialized
 def any_running():
-    return jobs.any_running()
-
-
-def extract_dict(obj, *names):
-    return {x: getattr(obj, x) for x in names}
+    return len(running) > 0
 
 
 def run():
     def serve():
-        import waitress
-        waitress.serve(app, host='0.0.0.0', port=5000)
+        # import waitress
+        # waitress.serve(app, host=user_conf.ip, port=user_conf.port)
+        logserver(f"Serving on {user_conf.ip}:{user_conf.port}")
+        sock.run(app)
 
     # Serve with waitress on a separate thread
-    logserver("Starting ...")
     t = threading.Thread(target=serve)
     t.start()
 
     # Set the server module on the jobqueue
     modname = globals()['__name__']
     module = sys.modules[modname]
-    jobs.queue.server = module
+
+    jobs.server = module
+    jobs.hijack_ctrlc()
 
     # Launch the shell to write commands.
+    plugins.wait_loading()
     shell.run()
-
 
     # from waitress import serve
     #

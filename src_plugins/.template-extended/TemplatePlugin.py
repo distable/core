@@ -1,12 +1,11 @@
 from src_core.classes.Plugin import Plugin
 
-
-class TemplatePlugin(Plugin):
+class __classname__(Plugin):
     def title(self):
-        return "My Plugin"
+        return "__title__"
 
     def describe(self):
-        return "Describe me"
+        return "__description__"
 
     def init(self):
         pass
