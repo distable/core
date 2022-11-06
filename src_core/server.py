@@ -2,12 +2,13 @@ import sys
 import threading
 
 import flask_socketio as fsock
+import waitress
 from flask import Flask, request
-from jsonic import serialize
 
 import src_core.core
 import user_conf
 from src_core import jobs, plugins, shell
+from src_core.classes.common import wserialize, extract_dict
 from src_core.classes.logs import logserver
 from src_core.classes.Session import Session
 from src_core.jobs import running
@@ -16,10 +17,14 @@ from src_core.jobs import running
 class _Client:
     def __init__(self, sid):
         self.sid = sid
-        self.session = Session.now(prefix=sid)
+
+        prefix = sid
+        if not user_conf.share:
+            prefix = ''
+        self.session = Session.now(prefix=prefix)
 
     def emit(self, event, data, *args, **kwargs):
-        sock.emit(event, serialize(data), room=self.sid, *args, **kwargs)
+        sock.emit(event, wserialize(data), room=self.sid, *args, **kwargs)
 
     def __repr__(self):
         return f"Client({self.sid})"
@@ -33,8 +38,6 @@ def Client(sid=None):
     """
     A client functoin which returns a class for the current request.sid or a specific SID.
     """
-    if not user_conf.share:
-        return _Client("local")
     if sid is None:
         sid = request.sid
     if sid not in clients:
@@ -48,7 +51,7 @@ def serialized(fn):
     """
 
     def wrapper(*args, **kwargs):
-        return serialize(fn(*args, **kwargs))
+        return wserialize(fn(*args, **kwargs))
 
     return wrapper
 
@@ -56,7 +59,7 @@ def serialized(fn):
 queue_lock = threading.Lock()
 
 app = Flask(__name__)
-sock = fsock.SocketIO(app)
+sock = fsock.SocketIO(app, debug=True)
 
 app.config['SECRET_KEY'] = 'supersecretidkwtfthisisfor!'
 clients = {}
@@ -64,7 +67,7 @@ clients = {}
 
 def emit(event, data, *args, **kwargs):
     with queue_lock:
-        sock.emit(event, serialize(data), *args, **kwargs)
+        sock.emit(event, wserialize(data), *args, **kwargs)
 
 
 @app.route('/')
@@ -72,14 +75,18 @@ def index():
     return "Hello from stable-core!"
 
 
-@sock.on
+@sock.on('connect')
 def connect():
     logserver('Client connected')
-    Client()
-    emit('handshake', dict(plugins=plugins.plugins, jobs=plugins.get_jobs()))
+    c = Client()
+    c.emit('welcome', dict(
+            session=c.session,
+            plugins=[extract_dict(p, 'id', 'title', 'describe') for p in plugins.plugins],
+            jobs=plugins.get_jobs(),
+    ))
 
 
-@sock.on
+@sock.on('disconnect')
 def disconnect():
     clients.pop(request.sid)
     logserver('Client disconnected')
@@ -112,9 +119,9 @@ def any_running():
 def run():
     def serve():
         # import waitress
-        # waitress.serve(app, host=user_conf.ip, port=user_conf.port)
         logserver(f"Serving on {user_conf.ip}:{user_conf.port}")
-        sock.run(app)
+        sock.run(app, host=user_conf.ip, port=user_conf.port)
+        # waitress.serve(app, host=user_conf.ip, port=user_conf.port)
 
     # Serve with waitress on a separate thread
     t = threading.Thread(target=serve)

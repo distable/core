@@ -135,8 +135,8 @@ def get_jobs() -> list[JobInfo]:
         # Find the original plugjob to point to
         alias_pname, alias_jname = split_jid(uid)  # sd1111,txt2img OR sd1111_plugin,txt2img
         for ifo in ret:
-            if ifo.plug.id.startswith(alias_pname) and (ifo.jid == alias_jname or ifo.jid.endswith(f'.{alias_jname}')):
-                ret.insert(0, JobInfo(alias, ifo.func, ifo.plug, alias=True, key=ifo.key))
+            if ifo.plugid.startswith(alias_pname) and (ifo.jid == alias_jname or ifo.jid.endswith(f'.{alias_jname}')):
+                ret.insert(0, JobInfo(alias, ifo.func, get_plug(ifo.plugid), alias=True, key=ifo.key))
                 break
 
     return ret
@@ -242,7 +242,7 @@ def create_plugins_in(loaddir: Path, log=False):
     if log:
         logplugin(f"Loaded {len(plugins)} plugins:")
     for plugin in plugins:
-        print_bp(f"{plugin.id} ({plugin.dir})")
+        print_bp(f"{plugin.id} ({plugin._dir})")
 
 
 def get_job(jquery, short=True, resolve=False) -> JobInfo | None:
@@ -323,7 +323,7 @@ def get_args(jquery, kwargs, uconf_defaults):
     # Flatten kwargs onto the user defaults
     if uconf_defaults:
         mod = mod2dic(user_conf)
-        pid = ifo.plug.id
+        pid = ifo.plugid
         _, jid = split_jid(ifo.jid)
 
         opt = mod['plugins'].get(pid, None).opt
@@ -356,9 +356,9 @@ def run(jquery: JobArgs | str | None = None, require_loaded=False, ifo=None, **k
     ifo = ifo or get_job(jquery)
     jargs = new_args(jquery, **kwargs)
 
-    if require_loaded and not ifo.plug.loaded:
+    if require_loaded and not get_plug(ifo.plugid).loaded:
         print("Waiting for plugin to load...")
-        while not ifo.plug.loaded:
+        while not get_plug(ifo.plugid).loaded:
             pass
 
     return ifo.func(ifo.jid, jargs)

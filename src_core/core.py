@@ -127,7 +127,7 @@ def load_plugins():
     if user_conf.print_extended_init:
         print()
     logcore(chalk.green_bright("3. Loading plugins..."))
-    plugins.broadcast("load", "{id}", threaded=False, on_after=on_after)  # TODO threaded true is weird
+    plugins.broadcast("load", "{id}", threaded=True, on_after=on_after)  # TODO threaded true is weird
 
 
 def log_jobs():

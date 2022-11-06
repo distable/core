@@ -98,6 +98,15 @@ def reload_conf():
     path = paths.root / 'user_conf.py'
     exec(path.read_text())
 
+@run.command()
+@click.option('--event', '-e', required=True, type=str)
+@click.option('--msg', '-m', required=True, type=str)
+def emit(event:str, msg:str):
+    """
+    Emit a socket-io message with the server.
+    """
+    from src_core.jobs import server
+    server.emit(event, msg)
 
 # @run.command()
 # def session():

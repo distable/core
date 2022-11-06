@@ -47,7 +47,7 @@ gdown~=4.5.1
 facexlib~=0.2.5
 opencv-python
 py-jsonic
-gevent
-gevent-websocket
 beeprint
 art
+gevent
+gevent-websocket
