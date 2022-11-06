@@ -1,22 +1,22 @@
 # stable-core
 
-**stable-core** is a backend server for AI art with plugins and UIs, your swiss-army knife and package manager to media synthesis. We cover every use case, from ordinary artists to intense creative coders.
+**stable-core** is a backend server for AI art with plugins and GUIs to use, the ultimate swiss-army knife to media synthesis. Every use case is covered, from ordinary artists to intense creative coders.
 
 **AI art and models, GUIs, animation, prompt engineering, audio-reactivity, iterating, experimenting, rendering, math functions, multi-modality,** everything is covered by stable-core and it all chains together. The amazing entourage effect of our components encourages developers implement all their best ideas and models as a stable-core plugin. 
 
-Like demoscene, we dogfood the hell out of it.
+**under heavy development**
 
-# Components
+## 🧬 Components
 
 1. **Backend:** The server/client architecture means clients implement UIs or bridge other apps like blender nodes, kdenlive clips, effects, etc.
 2. **Sessions:** your outputs are organized and clustered into sessions. A new timestamped session starts when a client connects, and you can re-open old sessions to do more work in them. Could be a prompt engineering session, an animation, a batch of variants, a history for an outpainting project, etc. 
 3. **Jobs:** Generate/transform some data with input/output. 
 4. **Plugins:** they implement models, packages, techniques, features, handle all installation and cloning in a well-defined manner. They plug into the system by providing jobs, which are simply functions. Create a new plugin generated from a template and you can instantly get to work.
-5. **Cloud Deploy:** Instantly render on runpod, vast.ai in just a few clicks. Paste in your SSH information to copy your configuration and your installation will automatically be installed and local jobs are deferred to the instance. The StableHorde is also worth supporting.
+5. **Cloud Deploy:** transparently switch between local & cloud computing with [runpod](https://www.runpod.io/) or [vast.ai](https://vast.ai/).
 
-## Installation
+## 🚀 Installation
 
-NOTE: currently there may be unexpected errors
+NOTE: currently there may be unexpected errors and computers explosion
 
 1. Download and extract into a directory.
 
@@ -63,7 +63,19 @@ Checking out commit for sd1111_plugin with hash: /home/nuck/stable-core/src_plug
 [core] All ready!
 [server] Starting ...
 [session] New session: 001_2022-10-29_23-07-55
+```
 
+   The server is launched on `127.0.0.0:5000`, you may connect with a GUI or use the shell.
+
+
+## 🍻 Usage
+
+
+### 1. Interactive Shell
+
+An [interactive shell](https://github.com/distable/core/wiki#shell) is available out of the box, type `help` to see commands.
+
+```
 > Enter commands here or use a client ...
 
 > txt2img p="Woaaa! Kawaii monster by salvador dali"
@@ -72,8 +84,34 @@ p=Woaaa! Kawaii monster by salvador dali
 
 ```
 
+### 2. Graphical User Interface (GUI)
 
-## Plugin
+Some GUI clients are available to connect to the core and use it.
+
+* ImGUI
+
+### 3. Bridges
+
+Bridge are another type of client which allow using the core inside an existing GUI, like Photoshop or Blender.
+
+### 4. Code
+
+You can use the core for creative coding.
+
+```
+core.init()
+
+p = core.prompt("A <scale> <glow> galaxy painted by <artist>")
+
+# Create the init image
+core.job('txt2img', prompt=p, cfg=7.75, steps=8, sampler='euler-a')
+
+for i in range(1000):
+    core.job('img2img', chg=0.65)
+    core.job("mat2d", zoom=0.015)
+```
+
+## ⚗ Plugins
 
 This is a preview of the end-game plugin ecosystem, how it will look and feel. We encourage community members to contribute and maintain some of these plugins themselves, or make new ones.
 
@@ -95,6 +133,11 @@ This is a preview of the end-game plugin ecosystem, how it will look and feel. W
 * **Palette Match:** img2img, adjust an image's palette to match an input image.
 * **Flow Warp:** img2img, displace an image using estimated flow between 2 input images.
 * **[Wildcards](distable/wildcard_plugin):** a plugin to add RNG into your prompts.
+* **Whisper:** audio2txt
+* **MetaPlugin:** a plugin to string other plugins together, either with job macros or straight-up python. Could be done without a plugin but this allows all clients to automatically support these features.
+* **Deforum:** txt2img, technically just a macro of other plugins (sorry)
+* **LucidSonicDreams:** txt2img, hopefully we can make it adapt to any model
+
 
 
 Upscalers:
@@ -103,24 +146,8 @@ Upscalers:
   * **LDSR:** img2img
   * **CodeFormer:** img2img, port
   * **GFPGAN:** img2img, port
-* **Deforum:** txt2img, technically just a macro of other plugins (sorry)
-* **LucidSonicDreams:** txt2img, hopefully we can make it adapt to any model
-* **MetaPlugin:** a plugin to string other plugins together, either with job macros or straight-up python. Could be done without a plugin but this allows all clients to automatically support these features.
-* **Whisper:** audio2txt
 
 Clients:
    * ImGUI
    * Gradio
    * Blender
-
-# Current roadmap
-
-If I am alone working on this, this will be my roadmap.
-
-1. ~Core backend components (server, jobs, plugins) to a usable state.~
-2. ~Run the StableDiffusionPlugin txt2img job from CLI~
-3. Get the session management working to a tee.
-4. Write a UI to manage sessions and do my work in.
-5. Plugins
-   - Port upscalers from AUTO1111 so we can see the workflow in action.
-   - Port my [disco-party](https://github.com/oxysoft/disco-party/) math plugin with dedicated graphing calculator for audio-reactivity
