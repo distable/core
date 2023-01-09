@@ -2,7 +2,6 @@ import sys
 import threading
 
 import flask_socketio as fsock
-import waitress
 from flask import Flask, request
 
 import src_core.core
@@ -118,10 +117,8 @@ def any_running():
 
 def run():
     def serve():
-        # import waitress
         logserver(f"Serving on {user_conf.ip}:{user_conf.port}")
         sock.run(app, host=user_conf.ip, port=user_conf.port)
-        # waitress.serve(app, host=user_conf.ip, port=user_conf.port)
 
     # Serve with waitress on a separate thread
     t = threading.Thread(target=serve)
