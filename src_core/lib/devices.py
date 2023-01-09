@@ -1,8 +1,21 @@
 import contextlib
+
+import psutil as psutil
 import torch
 
 
 # has_mps is only available in nightly pytorch (for now), `getattr` for compatibility
+def get_available_vram():
+    if device.type == 'cuda':
+        stats = torch.cuda.memory_stats(device)
+        mem_active = stats['active_bytes.all.current']
+        mem_reserved = stats['reserved_bytes.all.current']
+        mem_free_cuda, _ = torch.cuda.mem_get_info(torch.cuda.current_device())
+        mem_free_torch = mem_reserved - mem_active
+        mem_free_total = mem_free_cuda + mem_free_torch
+        return mem_free_total
+    else:
+        return psutil.virtual_memory().available
 
 def extract_device_id(args, name):
     for x in range(len(args)):
@@ -34,6 +47,8 @@ def enable_tf32():
     if torch.cuda.is_available():
         torch.backends.cuda.matmul.allow_tf32 = True
         torch.backends.cudnn.allow_tf32 = True
+        # torch.backends.cudnn.benchmark = True
+        # torch.backends.cudnn.enabled = True
 
 
 def randn(seed, shape):
@@ -65,7 +80,7 @@ def autocast(disable=False):
     if dtype == torch.float32:
         return contextlib.nullcontext()
     elif dtype == torch.float16:
-        return dtype == torch.autocast("cuda")
+        return torch.autocast("cuda")
 
     raise ValueError(f"Unknown precision {precision}")
 

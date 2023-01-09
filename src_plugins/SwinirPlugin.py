@@ -124,7 +124,7 @@ def upscale(
         img = torch.cat([img, torch.flip(img, [3])], 3)[:, :, :, : w_old + w_pad]
         output = inference(img, model, tile, tile_overlap, window_size, scale)
         output = output[..., : h_old * scale, : w_old * scale]
-        output = output.context.squeeze().float().cpu().clamp_(0, 1).numpy()
+        output = output.ctx.squeeze().float().cpu().clamp_(0, 1).numpy()
         if output.ndim == 3:
             output = np.transpose(
                 output[[2, 1, 0], :, :], (1, 2, 0)

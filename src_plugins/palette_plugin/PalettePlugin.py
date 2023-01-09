@@ -1,14 +1,21 @@
 import cv2
+from PIL import Image
 from skimage.exposure import match_histograms
 
 from src_core.classes.JobArgs import JobArgs
+from src_core.classes.printlib import printerr
+from src_core.classes.convert import cv2pil, pil2cv
 from src_core.plugins import plugjob
 from src_core.classes.Plugin import Plugin
+from src_plugins.disco_party.maths import droplerp_np
 
 
-class palmatch_job(JobArgs):
-    def __init__(self, **kwargs):
+class palette_job(JobArgs):
+    def __init__(self, pal:Image.Image|str, mode='LAB', speed=1, **kwargs):
         super().__init__(**kwargs)
+        self.pal = pal
+        self.mode = mode
+        self.speed = speed
 
 
 def maintain_colors(prev_img, color_match_sample, mode):
@@ -49,5 +56,18 @@ class PalettePlugin(Plugin):
         pass
 
     @plugjob
-    def match(self, p: palmatch_job):
-        pass # TODO we need an input pil to work with
+    def palette(self, j: palette_job):
+        palpil = None
+        if isinstance(j.pal, Image.Image):
+            palpil = j.pal
+        elif isinstance(j.pal, str):
+            palpil = Image.open(j.pal)
+        else:
+            printerr(f"Palette must be a PIL Image or a path to an image file, got {type(j.pal)}")
+
+        img = pil2cv(j.ctx.image)
+        pal = pil2cv(palpil)
+        droplerp_np(img, pal, 4, j.speed)
+        retcv = maintain_colors(img, pal, j.mode)
+
+        return cv2pil(retcv)

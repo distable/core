@@ -1,0 +1,50 @@
+{
+    "model": {
+        "type": "image_v1",
+        "input_channels": 4,
+        "input_size": [48, 48],
+        "patch_size": 1,
+        "mapping_out": 768,
+        "mapping_cond_dim": 896,
+        "unet_cond_dim": 4,
+        "depths": [4, 4, 4, 4],
+        "channels": [384, 384, 768, 768],
+        "self_attn_depths": [false, false, false, true],
+        "cross_attn_depths": [false, true, true, true],
+        "cross_cond_dim": 768,
+        "has_variance": true,
+        "dropout_rate": 0.0,
+        "augment_prob": 0.0,
+        "augment_wrapper": false,
+        "sigma_data": 1.0,
+        "sigma_min": 1e-2,
+        "sigma_max": 20,
+        "sigma_sample_density": {
+            "type": "lognormal",
+            "mean": -0.5,
+            "std": 1.2
+        }
+    },
+    "dataset": {
+        "type": "webdataset",
+        "location": "s3://s-datasets/laion-high-resolution/{00000..17535}.tar"
+    },
+    "optimizer": {
+        "type": "adamw",
+        "lr": 1.5e-4,
+        "betas": [0.95, 0.999],
+        "eps": 1e-6,
+        "weight_decay": 1e-3
+    },
+    "lr_sched": {
+        "type": "inverse",
+        "inv_gamma": 25000.0,
+        "power": 1.0,
+        "warmup": 0.99
+    },
+    "ema_sched": {
+        "type": "inverse",
+        "power": 0.7083,
+        "max_value": 0.9999
+    }
+}

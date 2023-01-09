@@ -1,0 +1,4 @@
+einops
+rudalle
+open_clip_torch
+git+https://github.com/pabloppp/pytorch-tools

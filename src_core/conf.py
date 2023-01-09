@@ -43,6 +43,7 @@ def plugdef(url):
     pid = short_pid(url)
     mdef = Munchr(opt=Munchr())
     mdef.url = url
+    mdef.load = False
 
     globals()['plugins'][pid] = mdef
     return mdef.opt

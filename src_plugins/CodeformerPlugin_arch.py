@@ -209,10 +209,10 @@ class CodeFormer(VQAutoEncoder):
         if isinstance(module, (nn.Linear, nn.Embedding)):
             module.weight.data.normal_(mean=0.0, std=0.02)
             if isinstance(module, nn.Linear) and module.bias is not None:
-                module.bias.context.zero_()
+                module.bias.ctx.zero_()
         elif isinstance(module, nn.LayerNorm):
-            module.bias.context.zero_()
-            module.weight.context.fill_(1.0)
+            module.bias.ctx.zero_()
+            module.weight.ctx.fill_(1.0)
 
     def forward(self, x, w=0, detach_16=True, code_only=False, adain=False):
         # ################### Encoder #####################

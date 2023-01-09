@@ -33,6 +33,8 @@ from src_core.classes.paths import short_pid, split_jid
 from src_core.classes.Plugin import Plugin
 from src_core.classes.PlugjobDeco import PlugjobDeco
 from src_core.classes.printlib import print_bp, print
+from src_core.classes.prompt_job import prompt_job
+from src_core.classes.printlib import trace
 
 # STATE
 # ----------------------------------------
@@ -40,6 +42,7 @@ from src_core.classes.printlib import print_bp, print
 plugin_dirs = []  # Plugin infos
 plugins = []  # Loaded modules
 num_loading = 0
+loadings = []
 
 
 def download(urls: list[str], log=False):
@@ -50,12 +53,13 @@ def download(urls: list[str], log=False):
 
     for pid in urls:
         url = pid
-        if 'http' not in pid and "github.com" not in pid:
-            url = f'https://{Path("github.com/") / pid}'
+        if '/' in url:
+            if 'http' not in pid and "github.com" not in pid:
+                url = f'https://{Path("github.com/") / pid}'
 
-        installing.gitclone(url, paths.plugins)
-        if log:
-            logplugin(" -", url)
+            installing.gitclone(url, into_dir=paths.code_plugins)
+            if log:
+                logplugin(" -", url)
 
 
 import functools
@@ -136,15 +140,15 @@ def get_jobs() -> list[JobInfo]:
         alias_pname, alias_jname = split_jid(uid)  # sd1111,txt2img OR sd1111_plugin,txt2img
         for ifo in ret:
             if ifo.plugid.startswith(alias_pname) and (ifo.jid == alias_jname or ifo.jid.endswith(f'.{alias_jname}')):
-                ret.insert(0, JobInfo(alias, ifo.func, get_plug(ifo.plugid), alias=True, key=ifo.key))
+                ret.insert(0, JobInfo(alias, ifo.func, get_plug(ifo.plugid), is_alias=True, key=ifo.key))
                 break
 
     return ret
 
 
-def create_plugin_at(path: Path):
+def instantiate_plugin_at(path: Path, install=True):
     """
-    Load a plugin, which is a python package/directory.
+    Create the plugin, which is a python package/directory.
     Special files are expected:
         - __init__.py: the main plugin file
         - __install__.py: the install script
@@ -156,58 +160,65 @@ def create_plugin_at(path: Path):
     if not path.exists():
         return
 
+    # Get the short pid of the plugin
+    pid = paths.short_pid(path.stem)
+
     try:
         plugin_dirs.append(path)
 
-        # We need a plugin file
-        if not any(['plugin' in Path(f).name.lower() for f in os.listdir(path)]):
-            return
-
-        # Get the short pid of the plugin
-        pid = path.stem
-        for suffix in paths.plugin_suffixes:
-            if pid.endswith(suffix):
-                pid = pid[:-len(suffix)]
-
-        # Import __install__
-        installing.current_parent = pid
+        # Import __install__ -
+        # ----------------------------------------
+        installing.skip_installations = not install
+        installing.default_basedir = paths.plug_repos / pid
         try:
+            start = time.time()
             importlib.import_module(f'src_plugins.{path.stem}.__install__')
+            print(f'Took {time.time() - start:.2f}s to load {pid}\'s __install__')
         except:
             pass
 
-        installing.current_parent = None
+        installing.default_basedir = None
 
-        # Unpack user_conf into __conf__
+        # Unpack user_conf into __conf__ (timed)
+        # ----------------------------------------
         try:
+            start = time.time()
             confmod = importlib.import_module(f'src_plugins.{path.stem}.__conf__')
+            print(f'Took {time.time() - start:.2f}s to load {pid}\'s __conf__')
             for k, v in user_conf.plugins[pid].opt.items():
                 setattr(confmod, k, v)
         except:
             pass
 
-        classtype = None
-        for f in path.iterdir():
-            if f.is_file() and f.suffix == '.py':
-                mod = importlib.import_module(f'src_plugins.{path.stem}.{f.stem}')
-                for name, member in inspect.getmembers(mod):
-                    if inspect.isclass(member) and issubclass(member, Plugin) and not member == Plugin:
-                        classtype = member
+        # NOTE:
+        # We allow any github repo to be used as a discore plugin, they don't necessarily need to implement plugjobs
+        # Hence we will now begin with real discore plugin instantiation
+        if any(['plugin' in Path(f).name.lower() for f in os.listdir(path)]):
+            classtype = None
 
-        if classtype is None:
-            logplugin_err(f'No plugin class found in {path}')
-            return
+            with trace('Import all plugin files to find plugin'):
+                for f in path.iterdir():
+                    if f.is_file() and f.suffix == '.py':
+                        mod = importlib.import_module(f'src_plugins.{path.stem}.{f.stem}')
+                        for name, member in inspect.getmembers(mod):
+                            if inspect.isclass(member) and issubclass(member, Plugin) and not member == Plugin:
+                                classtype = member
 
-        # Instantiate the plugin using __new__
-        plugin = classtype(dirpath=path)
-        plugins.append(plugin)
-        plugin.init()
+            if classtype is None:
+                logplugin_err(f'No plugin class found in {path}')
+                return
 
-        # create directories
-        plugin.res().mkdir(parents=True, exist_ok=True)
-        plugin.logs().mkdir(parents=True, exist_ok=True)
+            # Instantiate the plugin using __new__
+            with trace('Plugin instantiation'):
+                plugin = classtype(dirpath=path)
+                plugins.append(plugin)
+                plugin.init()
 
-        return plugin
+            # create directories
+            plugin.res().mkdir(parents=True, exist_ok=True)
+            plugin.logs().mkdir(parents=True, exist_ok=True)
+
+            return plugin
 
     except Exception as e:
         logplugin_err(f"Couldn't load plugin {path.name}:")
@@ -217,17 +228,17 @@ def create_plugin_at(path: Path):
         plugin_dirs.remove(path)
 
 
-def create_plugins_by_url(urls: list[str]):
+def instantiate_plugins_by_url(urls: list[str], install=True):
     """
     Load plugins from a list of URLs
     """
     for pid in urls:
-        if not create_plugin_at(paths.plugins / short_pid(pid)):
+        if not instantiate_plugin_at(paths.plugins / short_pid(pid), install):
             for suffix in paths.plugin_suffixes:
-                create_plugin_at(paths.plugins / (short_pid(pid) + suffix))
+                instantiate_plugin_at(paths.plugins / (short_pid(pid) + suffix), install)
 
 
-def create_plugins_in(loaddir: Path, log=False):
+def instantiate_plugins_in(loaddir: Path, log=False, install=True):
     """
     Load all plugin directories inside loaddir.
     """
@@ -237,7 +248,7 @@ def create_plugins_in(loaddir: Path, log=False):
     # Read the modules from the plugin directory
     for p in loaddir.iterdir():
         if p.is_dir() and not p.stem.startswith('__'):
-            create_plugin_at(p)
+            instantiate_plugin_at(p, install)
 
     if log:
         logplugin(f"Loaded {len(plugins)} plugins:")
@@ -290,9 +301,9 @@ def get_job(jquery, short=True, resolve=False) -> JobInfo | None:
                         return ifo
 
     ret = get()
-    if ret is not None and ret.alias and resolve:
+    if ret is not None and ret.is_alias and resolve:
         for j in get_jobs():
-            if not j.alias and ret.func == j.func:
+            if not j.is_alias and ret.func == j.func:
                 return j
 
     return ret
@@ -330,7 +341,7 @@ def get_args(jquery, kwargs, uconf_defaults):
         kwargs = {**opt.get(jid, {}), **kwargs}
 
         if isinstance(ifo.key, str):
-            kwargs = {**opt.get(ifo.key, None), **kwargs}
+            kwargs = {**opt.get(ifo.key, {}), **kwargs}
     return kwargs
 
 
@@ -342,29 +353,84 @@ def new_job(jquery: JobArgs | str | None = None, **kwargs) -> Job | None:
     """
     Create a new Job for a job query.
     """
-    ifo = get_job(jquery)
     jargs = new_args(jquery, **kwargs)
-    jargs.job = Job(ifo.jid, jargs)
+    jargs.job = Job(get_job(jquery).jid, jargs)
 
     return jargs.job
 
 
-def run(jquery: JobArgs | str | None = None, require_loaded=False, ifo=None, **kwargs) -> object | None:
+def process_prompt(prompt):
+    ret = run(prompt_job(prompt=prompt), required=False)
+    if ret is not None:
+        return ret
+    else:
+        return prompt
+
+
+def run(jquery: JobArgs | str | None = None, require_loaded=False, ifo=None, required=True, **kwargs) -> object | None:
     """
     Run a job with the given query and kwargs.
     """
     ifo = ifo or get_job(jquery)
     jargs = new_args(jquery, **kwargs)
 
-    if require_loaded and not get_plug(ifo.plugid).loaded:
+    if ifo is None:
+        if not required:
+            return None
+        else:
+            raise ValueError(f"Couldn't find job for {jquery}.")
+
+    plug = get_plug(ifo.plugid)
+    if require_loaded and not plug.loaded:
+        if plug not in loadings:
+            load(plug)
+
         print("Waiting for plugin to load...")
-        while not get_plug(ifo.plugid).loaded:
+        while not plug.loaded:
             pass
 
-    return ifo.func(ifo.jid, jargs)
+    from yachalk import chalk
+
+    # jargs_str = {k: v for k, v in jargs.__dict__.items() if isinstance(v, (int, float, str))}
+    # jargs_str = ' '.join([f'{chalk.white(k)}={chalk.grey(v)}' for k, v in jargs_str.items()])
+
+    # logplugin("start", chalk.blue(ifo.jid), jargs_str)
+    ret = ifo.func(plug, jargs)
+    # logplugin("end", chalk.blue(ifo.jid), jargs_str)
+    return ret
 
 
-def broadcast(name, msg=None, threaded=False, on_before=None, on_after=None, *args, **kwargs):
+def load(plug=None, userconf_only=True):
+    def on_before(plug):
+        loadings.append(plug)
+
+    def on_after(plug):
+        plug.loaded = True
+        loadings.remove(plug)
+
+    if plug is None:
+        broadcast("load", "{id}",
+                  threaded=False,
+                  on_before=on_before,
+                  on_after=on_after,
+                  filter=lambda plug: not plug.loaded and (not userconf_only or user_conf.plugins[plug.id].load))
+    else:
+        if plug.loaded:
+            logplugin_err(f"Plugin {plug.id} is already loaded!")
+            return
+
+        on_before(plug)
+        invoke(plug, "load")
+        on_after(plug)
+
+
+def broadcast(name,
+              msg=None,
+              threaded=False,
+              on_before=None,
+              on_after=None,
+              filter=None,
+              *args, **kwargs):
     """
     Dispatch a function call to all plugins.
     """
@@ -379,6 +445,9 @@ def broadcast(name, msg=None, threaded=False, on_before=None, on_after=None, *ar
 
     ret = None
     for plugin in plugins:
+        if filter and not filter(plugin):
+            continue
+
         plug = get_plug(plugin)
         if msg and plug:
             logplugin(" -", msg.format(id=plug.id))
@@ -410,7 +479,7 @@ def invoke(plugin, function, default=None, error=False, msg=None, *args, **kwarg
             return default
 
         if msg:
-            plugin(msg.format(id=plug.id))
+            plugin(msg.formagreyt(id=plug.id))
 
         return attr(*args, **kwargs)
     except Exception:

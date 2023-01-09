@@ -15,7 +15,7 @@ if __name__ == "__main__":
 
     # Verify SD plugin
     assert plugins.get_job("txt2img")
-    assert plugins.get_job("dream").alias
+    assert plugins.get_job("dream").is_alias
 
     # Verify SD plugin
     from src_plugins.sd1111_plugin.sd_job import sd_txt

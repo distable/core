@@ -1,8 +1,13 @@
+import aiofiles as aiofiles
 import numpy as np
+import opensimplex
 import PIL
+from PIL import Image
 
+from src_core.classes.convert import save_png
 from src_core.classes.JobArgs import JobArgs
 from src_core.classes.Plugin import Plugin
+from src_core.plugins import plugjob
 
 
 class spnoise_job(JobArgs):
@@ -10,6 +15,14 @@ class spnoise_job(JobArgs):
         super().__init__(**kwargs)
         self.coverage = coverage
         self.amplitude = amplitude
+
+
+class perlin_job(JobArgs):
+    def __init__(self, k=2, speed=1.0, alpha=1.0, **kwargs):
+        super().__init__(**kwargs)
+        self.k = k
+        self.alpha = alpha
+        self.speed = speed
 
 
 class SPNoisePlugin(Plugin):
@@ -22,11 +35,61 @@ class SPNoisePlugin(Plugin):
     def init(self):
         pass
 
-    def sp_noise(self, j: spnoise_job):
+    @plugjob
+    def perlin(self, j: perlin_job):
+        srcpil = j.ctx.image
+        if srcpil is None:
+            return None
+
+        # Generate perlin noise pil
+        t = j.session.t * j.speed
+
+        src = np.array(srcpil)
+
+        mask = (opensimplex.noise3array(
+                np.linspace(0, 1 / j.k, srcpil.width),
+                np.linspace(0, 1 / j.k, srcpil.height),
+                np.linspace(t, t, 1),
+        )[0] + 1) / 2
+
+        noise = (opensimplex.noise3array(
+                np.linspace(0, 1 / 0.001, srcpil.width),
+                np.linspace(0, 1 / 0.001, srcpil.height),
+                np.linspace(t + 30, t + 30, 1),
+        )[0] + 1) / 2
+
+        rgb = np.random.randint(0, 255, (3, srcpil.height, srcpil.width))
+
+
+        dst = mask * noise * 255
+        # Stack dst to 3 channels multiplied with random rgb
+        dst = np.stack([dst*rgb[0]/255, dst*rgb[1]/255, dst*rgb[2]/255], axis=2)
+        # dst = np.stack([dst, dst, dst], axis=2)
+
+        # maskpil = PIL.Image.fromarray(np.uint8(mask * j.alpha))
+        # noisepil = PIL.Image.fromarray(np.uint8(noise))
+
+        # Create empty pil with same size as input
+        # ret = PIL.Image.new('RGB', srcpil.size, (0, 0, 0))
+        ret = src + (dst-127) * j.alpha
+        ret = np.clip(ret, 0, 255)
+        ret = Image.fromarray(np.uint8(ret))
+        ret = ret.convert('RGB')
+
+        # print(maskpil, j.session.current_frame_path('perlin'))
+        save_png(Image.fromarray(np.uint8(dst)), j.session.current_frame_path('perlin'), with_async=True)
+
+        return ret
+
+
+    @plugjob
+    def spnoise(self, j: spnoise_job):
         """
         Add salt and pepper noise to image
         """
-        pil = j.input.image
+        pil = j.ctx.image
+        if pil is None:
+            return None
 
         img = np.array(pil)
         # if mask is not None:
@@ -65,6 +128,6 @@ class SPNoisePlugin(Plugin):
         #     zeros = np.zeros_like(img)
         # ret = ret * mask + zeros * (1-mask)
 
-        pil = PIL.Image.fromarray(ret)
+        pil = Image.fromarray(ret)
 
         return pil

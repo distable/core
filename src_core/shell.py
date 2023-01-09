@@ -33,7 +33,7 @@ def run():
             kw = dict()
             for a in c.args:
                 kw.update([a.split('=')])
-            src_core.core.job(plugins.new_args(c.command.name, kwargs=kw), bg=bg_jobs)
+            src_core.core.run(plugins.new_args(c.command.name, kwargs=kw), fg=bg_jobs)
 
         # Annotate the function as we normally would with @
         cmdfunc = click.pass_context(cmdfunc)
@@ -82,12 +82,9 @@ def session(name=None):
         name: the name of the session to load. If not provided, a new session will be created.
     """
     if name is None:
-        src_core.core.gsession = Session.now()
+        src_core.core.gs = Session.now()
     else:
-        if Path(name).exists():
-            src_core.core.gsession = Session(path=name)
-        else:
-            src_core.core.gsession = Session(name)
+        src_core.core.gs = Session(name)
 
 
 @run.command()
@@ -98,15 +95,17 @@ def reload_conf():
     path = paths.root / 'user_conf.py'
     exec(path.read_text())
 
+
 @run.command()
 @click.option('--event', '-e', required=True, type=str)
 @click.option('--msg', '-m', required=True, type=str)
-def emit(event:str, msg:str):
+def emit(event: str, msg: str):
     """
     Emit a socket-io message with the server.
     """
     from src_core.jobs import server
     server.emit(event, msg)
+
 
 # @run.command()
 # def session():

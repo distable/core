@@ -24,6 +24,8 @@ TypedStorage = torch.storage.TypedStorage if hasattr(torch.storage, 'TypedStorag
 allowed_zip_names = ["archive/data.pkl", "archive/version"]
 allowed_zip_names_re = re.compile(r"^archive/data/\d+$")
 cpu = torch.device("cpu")
+
+
 # device = gpu = get_optimal_device()
 
 
@@ -59,7 +61,6 @@ def discover_models(model_dir: str, url: str = None, command_path: str = None, e
     try:
         paths = [model_dir]
 
-
         if command_path is not None and command_path != model_dir:
             pretrained_path = command_path / 'experiments/pretrained_models'
             if pretrained_path.exists():
@@ -70,15 +71,10 @@ def discover_models(model_dir: str, url: str = None, command_path: str = None, e
 
         for place in paths:
             if place.exists():
-                for file in place.rglob('**/**'):
-                    if file.is_dir():
-                        continue
-
-                    if len(ext_filter) != 0:
-                        if file.suffix not in ext_filter:
-                            continue
-
-                    if file not in ret:
+                for file in place.iterdir():
+                    if not file.is_dir() \
+                            and (len(ext_filter) == 0 or file.suffix in ext_filter) \
+                            and file not in ret:
                         ret.append(file)
 
         if url is not None and len(ret) == 0:
@@ -245,5 +241,5 @@ def load(filename, *args, **kwargs):
     return unsafe_torch_load(filename, *args, **kwargs)
 
 
-unsafe_torch_load = torch.load
-torch.load = load
+# unsafe_torch_load = torch.load
+# torch.load = load

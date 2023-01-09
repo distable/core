@@ -7,7 +7,7 @@ from flask import Flask, request
 
 import src_core.core
 import user_conf
-from src_core import jobs, plugins, shell
+from src_core import core, jobs, plugins, shell
 from src_core.classes.common import wserialize, extract_dict
 from src_core.classes.logs import logserver
 from src_core.classes.Session import Session
@@ -97,17 +97,17 @@ def disconnect():
 
 @sock.on
 @serialized
-def abort_job(uid):
-    jobs.abort(uid)
+def jrun(jargs):
+    """
+    Start a job
+    """
+    core.run(jargs, session=Client().session)
 
 
 @sock.on
 @serialized
-def start_job(jargs):
-    """
-    Start a job
-    """
-    src_core.core.job(jargs, session=Client().session)
+def abort(uid):
+    core.abort(uid)
 
 
 @sock.on
@@ -137,7 +137,3 @@ def run():
     # Launch the shell to write commands.
     plugins.wait_loading()
     shell.run()
-
-    # from waitress import serve
-    #
-    # serve(app, host="0.0.0.0", port=8080)

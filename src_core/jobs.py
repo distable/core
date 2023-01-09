@@ -7,7 +7,7 @@
 
 
 import threading
-from copy import deepcopy
+from copy import copy
 from datetime import datetime
 
 import src_core.classes.common
@@ -85,30 +85,28 @@ def run(job):
     server.emit('job_started', job.uid)
 
     # Run the job for N repeats  ----------------------------------------
-    args = deepcopy(job.args)
+    args = copy(job.args)
     args.job = job
-    args.input = job.input
+    args.ctx = job.ctx
+    args.session = job.session
 
+    ret = None
     for i in range(job.args.job_repeats):
         if job.aborting: break
         ret = plugins.run(args, require_loaded=True)
         if job.aborting: break
 
-        # TODO merge ret into input PipeData to get output PipeData
-
-        dat = PipeData.automatic(ret)
-
-        if job.on_output is not None:
-            job.on_output(dat)
+        if job.on_done is not None:
+            job.on_done(ret)
 
     # Finish the job ----------------------------------------
     update(job, 1)
 
     if job.aborting:
-        logjob("Aborted: ", job)
+        # logjob("Aborted: ", job)
         server.emit('job_aborted', job.uid)
     else:
-        logjob("Finished: ", job)
+        # logjob("Finished: ", job)
         server.emit('job_finished', job.uid)
 
     remove(job)
@@ -118,6 +116,8 @@ def run(job):
 
     job.running = False
     job.aborting = False
+
+    return ret
 
 
 def update(job: Job, progress: float):

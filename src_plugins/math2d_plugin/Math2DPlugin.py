@@ -5,6 +5,7 @@ import numpy as np
 import PIL
 from PIL.Image import Image
 
+from src_core.classes.convert import cv2pil, pil2cv
 from src_core.classes.JobArgs import JobArgs
 from src_core.plugins import plugjob
 from src_core.classes.Plugin import Plugin
@@ -55,9 +56,11 @@ class Math2DPlugin(Plugin):
 
     @plugjob
     def mat2d(self, p: transform2d_job = None):
-        pil = p.input.image
-        pil.save('tmp.png')
-        img_0 = cv2.imread('tmp.png')
+        pil = p.ctx.image
+        if pil is None:
+            return
+
+        img_0 = pil2cv(pil)
 
         center = (1 * img_0.shape[1] // 2, 1 * img_0.shape[0] // 2)
         trans_mat = np.float32(
@@ -72,12 +75,10 @@ class Math2DPlugin(Plugin):
                 img_0,
                 transformation_matrix,
                 (img_0.shape[1], img_0.shape[0]),
-                borderMode=cv2.BORDER_WRAP
+                borderMode=cv2.BORDER_REFLECT
         )
-        cv2.imwrite('tmp.png', img_0)
-        pil = PIL.Image.open('tmp.png')
 
-        # TODO ewwwwwwwwwwww
-        os.remove('tmp.png')
+        # Convert to pil
+        pil = cv2pil(img_0)
 
         return pil.convert("RGB")

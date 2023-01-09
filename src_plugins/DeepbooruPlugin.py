@@ -88,8 +88,8 @@ class DeepDanbooruPlugin(Plugin):
                 zip_ref.extractall(model_path)
             os.remove(os.path.join(model_path, "deepdanbooru-v3-20211112-sgd-e28.zip"))
 
-        tags = dd.project.load_tags_from_project(model_path)
-        model = dd.project.load_model_from_project(
+        tags = dd.script.load_tags_from_project(model_path)
+        model = dd.script.load_model_from_project(
                 model_path, compile_model=True
         )
         return model, tags

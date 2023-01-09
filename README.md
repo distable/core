@@ -98,17 +98,84 @@ Bridge are another type of client which allow using the core inside an existing 
 
 You can use the core for creative coding.
 
-```
+#### txt2img
+```py
 core.init()
 
-p = core.prompt("A <scale> <glow> galaxy painted by <artist>")
+# Generate some images
+core.run('txt2img', prompt="A beautiful glowing ultra-elaborate galaxy painted by Salvador Dali, a psychedelic dream of colors and space", cfg=7.75, steps=18, sampler='euler-a')
+core.run('txt2img', prompt="Sam Bankman-Freud behind bars, 4k, dslr", cfg=7.75, steps=15, sampler='ddim')
+core.run('txt2img', prompt="Emad Mostaque as Gigachad, painted by Rembrandt", cfg=6, steps=50, sampler='lms')
 
-# Create the init image
-core.job('txt2img', prompt=p, cfg=7.75, steps=8, sampler='euler-a')
+# Here we demonstrate how job arguments are saved in the session and carry over
+# This behavior can be turned off with an argument to core.init()
+# This will generate another 25 Giga Emads with the same parameters
+for i in range(25):
+  core.run('txt2img')
+```
+
+#### img2img
+
+```py
+core.init()
+
+# Our init image
+core.run('txt2img', prompt="8 cats are stacked on top of themselves to create a catburger")
+
+# img2img and all transformative jobs use the image in the session context as input
+core.run('img2img', prompt="Emad Mostaque", chg=0.75)
+
+```
+
+#### Dry runs to save efforts
+
+```py
+core.init()
+
+# This simulates a run but does not execute or save anything
+# This is useful to set your default job arguments from the get-go
+core.dry('txt2img', prompt="Sam Altman as Gigachad", cfg=6, steps=50, sampler='lms')
+
+# Run with the same args as above, but with a much higher quality prompt
+core.run("txt2img", prompt="Emad Mostaque as Gigachad")
+
+# (jk I love you too sam)
+```
+
+#### Loopback Animation
+
+```py
+core.init(autosave=False)
+core.run('txt2img', prompt="A <scale> <glow> galaxy painted by <artist>", cfg=7.75, steps=8, sampler='euler-a')
 
 for i in range(1000):
-    core.job('img2img', chg=0.65)
-    core.job("mat2d", zoom=0.015)
+    core.run('img2img', chg=0.65)
+    core.run("mat2d", zoom=0.015)
+    core.add() # Append a frame to the end
+```
+
+#### Loopback Animation with restore
+
+It is possible to restore a previous session, making the coder's workflow highly efficient and streamlined.
+
+
+```py
+# Set restore to true to restore the most recent session (Or a new one if there aren't any)
+core.init(restore=True, autosave=True) 
+
+# run0 only does something for an empty session
+core.run0('txt2img', prompt="A <scale> <glow> galaxy painted by <artist>", cfg=7.75, steps=8, sampler='euler-a')
+
+# Here I would like the base edge-complexity of the first frame in order to guide the rest of the animation
+# We can use seeking to rewind to the first frame (or any)
+core.seek_min() # Seek to the first frame
+comp = core.run('edgecomp')
+core.seek_max() # Return to the final frame
+
+for i in range(1000):
+    core.run('img2img', chg=0.65)
+    core.run("mat2d", zoom=0.015)
+    core.add()
 ```
 
 ## ⚗ Plugins
