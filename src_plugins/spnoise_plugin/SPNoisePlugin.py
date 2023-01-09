@@ -1,7 +1,5 @@
-import aiofiles as aiofiles
 import numpy as np
 import opensimplex
-import PIL
 from PIL import Image
 
 from src_core.classes.convert import save_png

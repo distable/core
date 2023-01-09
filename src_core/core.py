@@ -7,9 +7,12 @@
 # ----------------------------------------
 
 import os
+import platform
 import shutil
 import subprocess
 import sys
+import time
+from pathlib import Path
 
 import socketio
 from yachalk import chalk
@@ -320,8 +323,6 @@ def seek_next(i=1):
     gs.seek_next(i)
 
 
-
-
 def seek_min():
     gs.seek_min()
 
@@ -350,43 +351,11 @@ def save():
     """
     gs.save()
 
-
-def deploy_local():
-    # A test 'provider' which attempts to do a clean clone of the current installation
-    # 1. Clone the repo to ~/discore_deploy/
-    subprocess.run(["git", "clone", "https://github.com/distable/core", "~/discore_deploy"])
-
-    # 2. Copy the current config to ~/discore_deploy/user_conf.py
-    shutil.copyfile("user_conf.py", "~/discore_deploy/user_conf.py")
-
-    # 3. Copy the current project (the py file being run) to ~/discore_deploy/project.py
-    shutil.copyfile(__file__, "~/discore_deploy/project.py")
-
-    # 3. Run ~/discore_deplay/run.sh or .bat on windows
-    if sys.platform == "win32":
-        subprocess.run(["~/discore_deploy/run.bat"])
-    else:
-        subprocess.run(["~/discore_deploy/run.sh"])
-
-
-def deploy_vastai():
-    """
-    Deploy onto cloud.
-    """
-    # 1. List the available machines with vastai api
-    # 2. Prompt the user to choose one
-    # 3. Connect to it with SSH
-    # 4. Git clone the core repository
-    # 5. Upload our user_conf
-    # 6. Launch discore
-    # 7. Connect our core to it
-    # ----------------------------------------
-    pass
-
 def print_frame_header():
     from src_core import core
     print("")
     print(f"Frame {core.f} ----------------------------------------")
+
 
 def __getattr__(name):
     if name == 'f':

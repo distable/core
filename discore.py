@@ -69,7 +69,14 @@ if not args.run:
 
     # Run bash shell with commands to activate the virtual environment and run the launch script
     spaced_args = ' '.join([f'"{arg}"' for arg in original_args])
-    os.system(f"bash -c 'source {VENV_DIR}/bin/activate && python3 {__file__} {spaced_args} --run'")
+    os.system(f"bash -c 'source {VENV_DIR}/bin/activate'")
+
+    if args.upgrade:
+        # Install requirements with venv pip
+        os.system(f"{VENV_DIR}/bin/pip install -r requirements.txt")
+        print('Upgrading to latest version')
+
+    os.system(f"bash -c 'source {VENV_DIR}/bin/activate && python3 {__file__} {spaced_args} --upgrade --run'")
     exit(0)
 
 
@@ -100,11 +107,6 @@ def main():
     if args.newplug:
         plugin_wizard()
         return
-
-    if args.upgrade:
-        # Install requirements with venv pip
-        os.system(f"{VENV_DIR}/bin/pip install -r requirements.txt")
-        print('Upgrading to latest version')
 
     if args.deploy == 'none':
         from src_core.classes import common
@@ -155,16 +157,66 @@ def main():
     # ----------------------------------------
     if args.deploy == 'local':
         # A test deployment to local machine (new installation with the configuration ready to run)
-        core.deploy_local()
+        deploy_local()
     elif args.deploy == 'run':
         # Run the deployment setup requested by the host (action, script, etc.)
         pass
     elif args.deploy == 'vast':
         # Ask user for vast credentials, choose a server, and deploy to it
-        core.deploy_vastai()  # TODO Options to keep the instance open
+        deploy_vastai()  # TODO Options to keep the instance open
     else:
         print('Unknown deployment provider.')
         exit(1)
+
+
+def deploy_local():
+    import time
+    import shutil
+    import platform
+
+
+    # A test 'provider' which attempts to do a clean clone of the current installation
+    # 1. Clone the repo to ~/discore_deploy/
+    src = paths.root
+    dst = Path.home() / "discore_deploy"
+
+    shutil.rmtree(dst.as_posix())
+
+    subprocess.run(["git", "clone", "https://github.com/distable/core", dst])
+    os.chdir(dst)
+    time.sleep(1)
+    subprocess.run(['git', 'submodule', 'update', '--init', '--recursive'])
+    shutil.copyfile(src / 'requirements.txt', dst / 'requirements.txt')
+    shutil.copyfile(src / 'discore.py', dst / 'discore.py')
+
+    # 2. Copy the current config todst /  /user_conf.py
+    shutil.copyfile(src / paths.userconf_name,
+                    dst / paths.userconf_name)
+
+    # 3. Copy the current project (the py file being run) todst /  /project.py
+    shutil.copytree(src / paths.scripts_name,
+                    dst / paths.scripts_name)
+
+    # 3. Run ~/discore_deploy/discore.py
+    if platform.system() == "Linux":
+        subprocess.run(['chmod', '+x', dst / 'discore.py'])
+
+    subprocess.run([dst / 'discore.py', '--upgrade'])
+
+
+def deploy_vastai():
+    """
+    Deploy onto cloud.
+    """
+    # 1. List the available machines with vastai api
+    # 2. Prompt the user to choose one
+    # 3. Connect to it with SSH
+    # 4. Git clone the core repository
+    # 5. Upload our user_conf
+    # 6. Launch discore
+    # 7. Connect our core to it
+    # ----------------------------------------
+    pass
 
 
 def plugin_wizard():
