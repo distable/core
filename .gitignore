@@ -9,14 +9,9 @@ __pycache__
 /GFPGANv1.3.pth
 /gfpgan/weights/*.pth
 /ui-config.json
-/sessions
 /config.json
 /log
 /webui.settings.bat
-/plug-res/
-/plug-res/plug-models
-/plug-res/plug-embeddings
-/plug-repos
 /styles.csv
 /styles.csv.bak
 /webui-user.bat
@@ -27,3 +22,11 @@ __pycache__
 notification.mp3
 /SwinIR
 /textual_inversion
+
+# User directories
+/sessions
+/scripts
+/plug-res/
+/plug-res/plug-models
+/plug-res/plug-embeddings
+/plug-repos
