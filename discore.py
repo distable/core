@@ -201,8 +201,7 @@ deploy_copy = ['requirements.txt', 'discore.py', paths.userconf_name, paths.scri
 # Commands to run in order to setup a deployment
 def get_deploy_commands(clonepath):
     return [
-        ['git', 'clone', 'https://github.com/distable/core', clonepath],
-        ['git', '-C', clonepath, 'submodule', 'update', '--init', '--recursive']
+        ['git', 'clone', '--recursive', 'https://github.com/distable/core', clonepath],
     ]
 
 
@@ -244,18 +243,18 @@ def input_bool(string):
 
 
 def sshexec(ssh, cmd, with_printing=True):
-    if with_printing:
-        print(f'sshexec({cmd})')
-    stdin, stdout, stderr = ssh.exec_command(cmd, get_pty=True)
-    ret = []
-    for line in iter(stdout.readline, ""):
-        # print(line, end="")
-        ret.append(line)
-    if with_printing:
-        from yachalk import chalk
-        print(chalk.dim('\n'.join(ret)))
+    # if with_printing:
+    #     print(f'sshexec({cmd})')
+    ssh.exec_command(cmd)
+    # ret = []
+    # for line in iter(stdout.readline, ""):
+    #     # print(line, end="")
+    #     ret.append(line)
+    # if with_printing:
+    #     from yachalk import chalk
+    #     print(chalk.dim(''.join(ret)))
 
-    return ret
+    # return ret
 
 
 def deploy_vastai():
@@ -374,13 +373,14 @@ def deploy_vastai():
 
         time.sleep(3)
 
-        print(f"Successfully created instance {choice}!")
+        print(f"Successfully created instance {selected_id}!")
 
     def wait_for_instance(id):
         printed_loading = False
         ins = None
         while ins is None or ins['status'] != 'running':
             all_ins = [i for i in fetch_instances() if i['id'] == id]
+            print(all_ins)
             if len(all_ins) > 0:
                 ins = all_ins[0]
 
@@ -455,8 +455,9 @@ def deploy_vastai():
             sftp.put(src_file.as_posix(), dst_file.as_posix())
     sftp.close()
 
+    sshexec(ssh, f"apt-get install python3-venv", True)
     sshexec(ssh, f"chmod +x {dst / 'discore.py'}", True)
-    sshexec(ssh, f"{dst / 'discore.py'} --upgrade", True)
+    sshexec(ssh, f"python3 {dst / 'discore.py'} --upgrade", True)
 
     # Start a ssh shell for the user
     # channel = ssh.invoke_shell()
