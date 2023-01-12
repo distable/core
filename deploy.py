@@ -264,6 +264,8 @@ def deploy_vastai():
     oargs.remove('--vastai')
     launch_cmd += f' {" ".join(oargs)}'
     launch_cmd += f' --upgrade --no_venv'
+    if not args.vastai_continue:
+        launch_cmd += f' --install'
     launch_cmd += "'"
 
     print(launch_cmd)
