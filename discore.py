@@ -65,8 +65,7 @@ if not args.run:
 
     # Check that we're running python 3.9 or higher
     if sys.version_info < (3, 9):
-        print("Please run with python 3.9 or higher")
-        exit(1)
+        print(f"Warning your python version {sys.version_info} is detected as lower than 3.9, you may be fucked, proceed at your own risks")
 
     # Checkb that we have git installed
     if not os.path.exists("/usr/bin/git"):
@@ -370,15 +369,17 @@ def deploy_vastai():
         printed_loading = False
         ins = None
         while ins is None or ins['status'] != 'running':
-            ins = [i for i in fetch_instances() if i['id'] == id][0]
+            all_ins = [i for i in fetch_instances() if i['id'] == id]
+            if len(all_ins) > 0:
+                ins = all_ins[0]
 
-            if ins is not None and ins['status'] == 'running':
-                return ins
+                if ins is not None and ins['status'] == 'running':
+                    return ins
 
-            if ins is not None and ins['status'] != 'running':
-                if not printed_loading:
-                    print(f"Waiting for {id} to finish loading...")
-                    printed_loading = True
+                if ins is not None and ins['status'] != 'running':
+                    if not printed_loading:
+                        print(f"Waiting for {id} to finish loading...")
+                        printed_loading = True
 
             time.sleep(3)
 
