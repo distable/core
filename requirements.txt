@@ -1,12 +1,12 @@
-torch~=1.13.1
-torchvision~=0.14.0
-diffusers==0.11.1
+torch
+torchvision
+diffusers
 # fairscale~=0.4.9
 # fonts~=0.0.3
 # font-roboto
 gradio==3.4.1
 numpy~=1.24.1
-omegaconf~=2.2.3
+omegaconf
 piexif~=1.1.3
 Pillow~=9.4.0
 pytorch_lightning
@@ -17,7 +17,7 @@ einops~=0.3.2
 clean-fid
 resize-right
 torchdiffeq~=0.2.3
-kornia~=0.6.7
+kornia
 lark~=1.1.2
 flask~=2.2.2
 flask-socketio

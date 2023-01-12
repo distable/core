@@ -252,7 +252,8 @@ def sshexec(ssh, cmd, with_printing=True):
         # print(line, end="")
         ret.append(line)
     if with_printing:
-        print('\n'.join(ret))
+        from yachalk import chalk
+        print(chalk.dim('\n'.join(ret)))
 
     return ret
 
@@ -313,11 +314,13 @@ def deploy_vastai():
             instances.append(dict(id=line[0], machine=line[1], status=line[2], num=line[3], model=line[4], util=line[5], vcpus=line[6], ram=line[7], storage=line[8], sshaddr=line[9], sshport=line[10], price=line[11], image=line[12], netup=line[13], netdown=line[14], r=line[15], label=line[16]))
         return instances
 
+    from yachalk import chalk
+
     def print_offer(e):
-        print(f'{i + 1} - {e["model"]} - {e["num"]} - {e["dlp"]} - {e["price"]} $/hr - {e["dlpprice"]} DLP/HR')
+        print(chalk.green(f'{i + 1} - {e["model"]} - {e["num"]} - {e["dlp"]} - {e["price"]} $/hr - {e["dlpprice"]} DLP/HR'))
 
     def print_instance(e):
-        print(f'{i + 1} - {e["model"]} - {e["num"]} -  {e["price"]} $/hr - {e["status"]}')
+        print(chalk.green_bright(f'{i + 1} - {e["model"]} - {e["num"]} -  {e["price"]} $/hr - {e["status"]}'))
 
     instances = fetch_instances()
     selected_id = None  # The instance to boot up
@@ -409,6 +412,8 @@ def deploy_vastai():
     ssh.connect(ip, port=int(port), username='root')
 
     print(f"ssh -p {port} root@{ip}")
+    print(f"kitty +kitten ssh -p {port} root@{ip}")
+    print("")
 
     if user_conf.vastai_sshfs:
         # Use sshfs to mount the machine
@@ -442,14 +447,16 @@ def deploy_vastai():
     for file in deploy_copy:
         src_file = src / file
         dst_file = dst / file
-        print(f"Copying {src_file} to {dst_file}")
         if src_file.is_dir():
             sftp.mkdir(dst_file.as_posix(), ignore_existing=True)
-            sftp.put_dir(src_file, dst_file)
+            sftp.put_dir(src_file.as_posix(), dst_file.as_posix())
+        else:
+            print(f"Uploading {src_file.as_posix()} to {dst_file.as_posix()}")
+            sftp.put(src_file.as_posix(), dst_file.as_posix())
     sftp.close()
 
     sshexec(ssh, f"chmod +x {dst / 'discore.py'}", True)
-    sshexec(ssh, f"{dst / 'discore.py'} --upgrade --no-venv", True)
+    sshexec(ssh, f"{dst / 'discore.py'} --upgrade", True)
 
     # Start a ssh shell for the user
     # channel = ssh.invoke_shell()

@@ -25,6 +25,7 @@ notification.mp3
 
 # User directories
 vast
+mount
 /sessions
 /scripts
 /plug-res/

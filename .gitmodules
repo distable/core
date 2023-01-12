@@ -4,3 +4,6 @@
 [submodule "src_core/classes"]
 	path = src_core/classes
 	url = https://github.com/discore/core-lib
+[submodule "src_plugins/disco_party"]
+	path = src_plugins/disco_party
+	url = https://github.com/distable/disco-party
