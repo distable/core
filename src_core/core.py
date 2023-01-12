@@ -14,7 +14,6 @@ import sys
 import time
 from pathlib import Path
 
-import socketio
 from yachalk import chalk
 
 import user_conf
@@ -46,22 +45,22 @@ proxied = False
 proxy = None
 
 
-class Proxy:
-    def __init__(self):
-        sio = socketio.Client()
-
-        @sio.event
-        def connect():
-            pass
-
-        @sio.event
-        def disconnect():
-            pass
-
-        self.sio = sio
-
-    def emit(self, *args, **kwargs):
-        self.sio.emit(*args, **kwargs)
+# class Proxy:
+#     def __init__(self):
+#         sio = socketio.Client()
+#
+#         @sio.event
+#         def connect():
+#             pass
+#
+#         @sio.event
+#         def disconnect():
+#             pass
+#
+#         self.sio = sio
+#
+#     def emit(self, *args, **kwargs):
+#         self.sio.emit(*args, **kwargs)
 
 
 # region Initialization

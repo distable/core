@@ -1,43 +1,43 @@
-torch
-torchvision
-diffusers
+torch~=1.13.1
+torchvision~=0.14.1
+diffusers~=0.11.1
 # fairscale
 # fonts
 # font-roboto
 numpy==1.23.5
-omegaconf
-piexif
-Pillow
+omegaconf~=2.2.3
+piexif~=1.1.3
+Pillow~=9.4.0
 pytorch_lightning
-scikit-image
-timm
-einops
+scikit-image~=0.19.3
+timm~=0.6.12
+einops~=0.3.2
 # jsonmerge
 clean-fid
 resize-right
 torchdiffeq
 kornia
-lark
-flask
+lark~=1.1.5
+flask~=2.2.2
 flask-socketio
-bunch
+bunch~=1.0.1
 # waitress
-click
+click~=8.1.3
 click-shell
 # terminal-img
-yachalk
-munch
-tqdm
+yachalk~=0.1.5
+munch~=2.5.0
+tqdm~=4.64.1
 setuptools
-scipy
+scipy~=1.9.3
 clip
 # PyYAML
 # packaging
-requests
+requests~=2.25.1
 # lpips
 gdown
 # facexlib
-opencv-python
+opencv-python~=4.6.0.66
 py-jsonic
 beeprint
 art
@@ -49,9 +49,23 @@ transformers==4.19.2
 # fire
 # pydub
 # stumpy
-python-dateutil
-opensimplex
+python-dateutil~=2.8.2
+opensimplex~=0.4.3
 # torchsde
 # xformers==0.13.0
-psutil
-paramiko
+psutil~=5.9.4
+paramiko~=2.12.0
+importlib~=1.0.4
+PyQt5~=5.15.7
+nltk~=3.8
+gensim~=4.2.0
+soundfile~=0.11.0
+pandas~=1.5.2
+pydub~=0.25.1
+matplotlib~=3.6.2
+stumpy~=1.11.1
+basicsr~=1.4.2
+fonts~=0.0.3
+facexlib~=0.2.5
+gfpgan~=1.3.8
+realesrgan~=0.3.0
