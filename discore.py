@@ -57,6 +57,8 @@ os.chdir(Path(__file__).parent)
 
 # The actual script when launched as standalone
 # ----------------------------------------
+# python_exec = sys.executable
+# print(python_exec)
 
 if not args.run:
     # Disallow running as root
@@ -82,19 +84,19 @@ if not args.run:
             argp.upgrade = True
 
         # Run bash shell with commands to activate the virtual environment and run the launch script
-        spaced_args = ' '.join([f'"{arg}"' for arg in original_args])
         os.system(f"bash -c 'source {VENV_DIR}/bin/activate'")
 
     if args.upgrade:
         # Install requirements with venv pip
         if args.no_venv:
-            os.system(f"pip install -r requirements.txt")
+            os.system(f"{sys.executable} -m pip install -r requirements.txt")
         else:
             os.system(f"{VENV_DIR}/bin/pip install -r requirements.txt")
         print('Upgrading to latest version')
 
+    spaced_args = ' '.join([f'"{arg}"' for arg in original_args])
     if args.no_venv:
-        os.system(f"bash -c 'python3 {__file__} {spaced_args} --upgrade --run'")
+        os.system(f"bash -c '{sys.executable} {__file__} {spaced_args} --upgrade --run'")
     else:
         os.system(f"bash -c 'source {VENV_DIR}/bin/activate && python3 {__file__} {spaced_args} --upgrade --run'")
 
@@ -109,9 +111,7 @@ if not args.run:
 # from src_core.classes.logs import loglaunch, loglaunch_err
 # from src_core.classes.Session import Session
 
-import user_conf
 from src_core.classes import paths
-import interactive
 
 
 def determine_session():
@@ -151,6 +151,7 @@ def main():
                 exit(1)
 
             # Load the action script module
+            print(paths.get_script_module_path(a))
             amod = importlib.import_module(paths.get_script_module_path(a), package=a)
             if amod is None:
                 from src_core.classes.logs import loglaunch_err
@@ -202,6 +203,7 @@ deploy_copy = ['requirements.txt', 'discore.py', paths.userconf_name, paths.scri
 def get_deploy_commands(clonepath):
     return [
         ['git', 'clone', '--recursive', 'https://github.com/distable/core', clonepath],
+        ['git', '-C', clonepath, 'submodule', 'update', '--init', '--recursive'],
     ]
 
 
@@ -243,16 +245,17 @@ def input_bool(string):
 
 
 def sshexec(ssh, cmd, with_printing=True):
-    # if with_printing:
-    #     print(f'sshexec({cmd})')
-    ssh.exec_command(cmd)
-    # ret = []
-    # for line in iter(stdout.readline, ""):
-    #     # print(line, end="")
-    #     ret.append(line)
-    # if with_printing:
-    #     from yachalk import chalk
-    #     print(chalk.dim(''.join(ret)))
+    if with_printing:
+        print(f'sshexec({cmd})')
+    stdin, stdout, stderr = ssh.exec_command(cmd)
+    stdout.channel.set_combine_stderr(True)
+    ret = []
+    for line in iter(stdout.readline, ""):
+        # print(line, end="")
+        ret.append(line)
+    if with_printing:
+        from yachalk import chalk
+        print(chalk.dim(''.join(ret)))
 
     # return ret
 
@@ -261,6 +264,9 @@ def deploy_vastai():
     """
     Deploy onto cloud.
     """
+    import interactive
+    import paramiko
+    import user_conf
     # 1. List the available machines with vastai api
     # 2. Prompt the user to choose one
     # 3. Connect to it with SSH
@@ -279,6 +285,7 @@ def deploy_vastai():
     # Run vast command and parse its output
 
     def fetch_offers():
+        import user_conf
         out = subprocess.check_output(['python3', vastpath, 'search', 'offers', args.vastai_search or user_conf.vastai_default_search]).decode('utf-8')
         # Example output:
         # ID       CUDA  Num  Model     PCIE  vCPUs    RAM  Disk   $/hr    DLP    DLP/$  NV Driver   Net_up  Net_down  R     Max_Days  mach_id  verification
@@ -330,15 +337,16 @@ def deploy_vastai():
 
     # 1. Choose or create instance
     # ----------------------------------------
-    while len(instances) >= 1:
-        try:
-            s = input("Choose an instance or type 'n' to create a new one: ")
-            if s == 'n':
-                break;
-            selected_id = instances[int(s) - 1]['id']
-            break
-        except:
-            print("Invalid choice")
+    selected_id = instances[0]['id']
+    # while len(instances) >= 1:
+    #     try:
+    #         s = input("Choose an instance or type 'n' to create a new one: ")
+    #         if s == 'n':
+    #             break;
+    #         selected_id = instances[int(s) - 1]['id']
+    #         break
+    #     except:
+    #         print("Invalid choice")
 
     if selected_id is None:
         # Create new instance
@@ -407,14 +415,20 @@ def deploy_vastai():
     ip = instance['sshaddr']
     port = instance['sshport']
 
-    import paramiko
+
     ssh = paramiko.SSHClient()
     ssh.load_host_keys(os.path.expanduser(os.path.join('~', '.ssh', 'known_hosts')))
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
     ssh.connect(ip, port=int(port), username='root')
 
-    print(f"ssh -p {port} root@{ip}")
-    print(f"kitty +kitten ssh -p {port} root@{ip}")
+    from src_core.ssh.sftpclient import SFTPClient
+    sftp = SFTPClient.from_transport(ssh.get_transport())
+
+    ssh_cmd = f"ssh -p {port} root@{ip}"
+    kitty_cmd = f"kitty +kitten {ssh_cmd}"
+
+    print(ssh_cmd)
+    print(kitty_cmd)
     print("")
 
     if user_conf.vastai_sshfs:
@@ -424,28 +438,23 @@ def deploy_vastai():
         os.system(f"umount {d}")
         os.system(f"sshfs root@{ip}:/workspace -p {port} {d}")
 
-    # Open a shell
-    if args.shell:
-        # Start a ssh shell for the user
-        channel = ssh.invoke_shell()
-        interactive.interactive_shell(channel)
-
     # Deploy like in local
     src = paths.root
     dst = Path("/workspace/discore_deploy")
     sshexec(ssh, "ls /workspace/")
+
+    repo_existed = sftp.exists(dst)
+    print('repo_existed', repo_existed)
 
     # Deployment steps
     cmds = get_deploy_commands(dst.as_posix())
     for cmd in cmds:
         sshexec(ssh, ' '.join(cmd))
 
-    if user_conf.vastai_sshfs:
+    if user_conf.vastai_sshfs and not repo_existed:
         d = Path(user_conf.vastai_sshfs_path).expanduser()
         open_in_explorer(d)
 
-    from src_core.ssh.sftpclient import SFTPClient
-    sftp = SFTPClient.from_transport(ssh.get_transport())
     for file in deploy_copy:
         src_file = src / file
         dst_file = dst / file
@@ -457,12 +466,22 @@ def deploy_vastai():
             sftp.put(src_file.as_posix(), dst_file.as_posix())
     sftp.close()
 
-    sshexec(ssh, f"apt-get install python3-venv", True)
-    sshexec(ssh, f"chmod +x {dst / 'discore.py'}", True)
-    sshexec(ssh, f"python3 {dst / 'discore.py'} --upgrade", True)
+    # Open a shell
+    if args.shell:
+        # Start a ssh shell for the user
+        channel = ssh.invoke_shell()
+        interactive.interactive_shell(channel)
+
+    sshexec(ssh, f"apt-get install python3-venv -y")
+    sshexec(ssh, f"apt-get install libgl1 -y")
+    sshexec(ssh, f"chmod +x {dst / 'discore.py'}")
+    sshexec(ssh, f"rm -rf {dst / 'venv'}")
+    sshexec(ssh, f"whoami")
 
     # Start a ssh shell for the user
-    # channel = ssh.invoke_shell()
+    launch_cmd = f"{kitty_cmd} 'cd /workspace/discore_deploy/; /opt/conda/bin/python3 {dst / 'discore.py'} --upgrade --no-venv'"
+    print(launch_cmd)
+    os.system(launch_cmd)
     # interactive.interactive_shell(channel)
 
 

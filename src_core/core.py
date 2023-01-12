@@ -42,11 +42,11 @@ torch_command = os.environ.get('TORCH_COMMAND', "pip install torch==1.12.1+cu113
 clip_package = os.environ.get('CLIP_PACKAGE', "git+https://github.com/openai/CLIP.git@d50d76daa670286dd6cacf3bcd80b5e4823fc8e1")
 requirements_file = os.environ.get('REQS_FILE', "../requirements_versions.txt")
 
-deployed = False
-cclient = None
+proxied = False
+proxy = None
 
 
-class CloudClient:
+class Proxy:
     def __init__(self):
         sio = socketio.Client()
 
@@ -275,8 +275,8 @@ def run(jquery: str | JobArgs, session: Session | None = None, fg=True, **kwargs
 
     # run
     # ----------------------------------------
-    if deployed:
-        cclient.emit("start_job", plugins.new_args())
+    if proxied:
+        proxy.emit("start_job", plugins.new_args())
     else:
         if fg:
             # logcore(f"{chalk.blue(j.jid)}(...)")
@@ -293,8 +293,8 @@ def run(jquery: str | JobArgs, session: Session | None = None, fg=True, **kwargs
 
 
 def abort(uid):
-    if deployed:
-        cclient.emit("abort", uid)
+    if proxied:
+        proxy.emit("abort", uid)
 
 
 def open(session_name, i=None):

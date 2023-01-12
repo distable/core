@@ -1,45 +1,43 @@
 torch
 torchvision
 diffusers
-# fairscale~=0.4.9
-# fonts~=0.0.3
+# fairscale
+# fonts
 # font-roboto
-gradio==3.4.1
-numpy~=1.24.1
+numpy==1.23.5
 omegaconf
-piexif~=1.1.3
-Pillow~=9.4.0
+piexif
+Pillow
 pytorch_lightning
-scikit-image>=0.19
-timm~=0.6.7
-einops~=0.3.2
-# jsonmerge~=1.8.0
+scikit-image
+timm
+einops
+# jsonmerge
 clean-fid
 resize-right
-torchdiffeq~=0.2.3
+torchdiffeq
 kornia
-lark~=1.1.2
-flask~=2.2.2
+lark
+flask
 flask-socketio
-bunch~=1.0.1
-# waitress~=2.1.2
-click~=8.1.3
+bunch
+# waitress
+click
 click-shell
 # terminal-img
-yachalk~=0.1.5
-munch~=2.5.0
-tqdm~=4.64.1
-setuptools~=63.2.0
-scipy~=1.9.2
-clip~=0.2.0
-# PyYAML~=6.0
-# packaging~=21.3
-requests~=2.25.1
-lmdb~=1.3.0
-# lpips~=0.1.4
-gdown~=4.5.1
-# facexlib~=0.2.5
-opencv-python~=4.6.0.66
+yachalk
+munch
+tqdm
+setuptools
+scipy
+clip
+# PyYAML
+# packaging
+requests
+# lpips
+gdown
+# facexlib
+opencv-python
 py-jsonic
 beeprint
 art
@@ -48,11 +46,12 @@ gevent-websocket
 websocket-client
 python-socketio
 transformers==4.19.2
-# fire~=0.4.0
-# pydub~=0.25.1
-# stumpy~=1.11.1
-python-dateutil~=2.8.2
+# fire
+# pydub
+# stumpy
+python-dateutil
 opensimplex
 # torchsde
 # xformers==0.13.0
 psutil
+paramiko
