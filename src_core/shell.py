@@ -4,6 +4,7 @@ from pathlib import Path
 import click
 from click_shell import shell
 
+import jargs
 # @click.group()  # no longer
 import src_core.core
 from src_core.classes import paths
@@ -31,7 +32,7 @@ def run():
         # noinspection PyRedeclaration
         def cmdfunc(c, **kwargs):
             kw = dict()
-            for a in c.args:
+            for a in args.args:
                 kw.update([a.split('=')])
             src_core.core.run(plugins.new_args(c.command.name, kwargs=kw), fg=bg_jobs)
 

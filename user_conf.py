@@ -52,6 +52,11 @@ vastai_default_search = "gpu_name=RTX_3090"
 vastai_sshfs = True # Mount via sshfs
 vastai_sshfs_path = "~/discore/mount/"
 
+deploy_urls = {
+    'sd-v1-5.ckpt' : '',
+    'vae.vae.pt' : '',
+}
+
 # # Plugin config
 # # ----------------------------------------
 #

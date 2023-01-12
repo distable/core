@@ -10,6 +10,7 @@ import threading
 from copy import copy
 from datetime import datetime
 
+import jargs
 import src_core.classes.common
 import src_core.core
 from src_core.classes import printlib
@@ -85,13 +86,13 @@ def run(job):
     server.emit('job_started', job.uid)
 
     # Run the job for N repeats  ----------------------------------------
-    args = copy(job.args)
+    args = copy(args.args)
     args.job = job
     args.ctx = job.ctx
     args.session = job.session
 
     ret = None
-    for i in range(job.args.job_repeats):
+    for i in range(args.args.job_repeats):
         if job.aborting: break
         ret = plugins.run(args, require_loaded=True)
         if job.aborting: break

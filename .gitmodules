@@ -1,9 +1,9 @@
 [submodule "src_plugins/sd1111_plugin"]
 	path = src_plugins/sd1111_plugin
-	url = https://github.com/distable/sd1111_plugin.git
+	url = ../sd1111_plugin.git
 [submodule "src_core/classes"]
 	path = src_core/classes
-	url = https://github.com/distable/core-lib.git
+	url = ../core-lib.git
 [submodule "src_plugins/disco_party"]
 	path = src_plugins/disco_party
-	url = https://github.com/distable/disco-party.git
+	url = ../disco-party.git
