@@ -86,10 +86,10 @@ def deploy_vastai():
     from yachalk import chalk
 
     def print_offer(e):
-        print(chalk.green(f'{i + 1} - {e["model"]} - {e["num"]} - {e["dlp"]} - {e["price"]} $/hr - {e["dlpprice"]} DLP/HR'))
+        print(chalk.green(f'{i + 1} - {e["model"]} - {e["num"]} - {e["dlp"]} - {e["netdown"]} Mbps - {e["price"]} $/hr - {e["dlpprice"]} DLP/HR'))
 
     def print_instance(e):
-        print(chalk.green_bright(f'{i + 1} - {e["model"]} - {e["num"]} -  {e["price"]} $/hr - {e["status"]}'))
+        print(chalk.green_bright(f'{i + 1} - {e["model"]} - {e["num"]} - {e["netdown"]} Mbps -  {e["price"]} $/hr - {e["status"]}'))
 
     print("Deployed instances:")
     instances = fetch_instances()
