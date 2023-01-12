@@ -215,40 +215,40 @@ def deploy_vastai():
     repo_existed = sftp.exists(dst)
     print('repo_existed', repo_existed)
 
-    if args.vastai_recreate:
+    if not args.vastai_continue:
         print(chalk.green("--vastai_recreate"))
         sshexec(ssh, f"rm -rf {dst}")
 
-    # Deployment steps
-    # ----------------------------------------
-    print(chalk.green("Deployment commands..."))
-    cmds = get_deploy_commands(dst.as_posix())
-    for cmd in cmds:
-        sshexec(ssh, ' '.join(cmd))
+        # Deployment steps
+        # ----------------------------------------
+        print(chalk.green("Deployment commands..."))
+        cmds = get_deploy_commands(dst.as_posix())
+        for cmd in cmds:
+            sshexec(ssh, ' '.join(cmd))
 
-    # ----------------------------------------
-    print(chalk.green("VastAI setup commands..."))
-    sshexec(ssh, f"apt-get install python3-venv -y")
-    sshexec(ssh, f"apt-get install libgl1 -y")
-    sshexec(ssh, f"chmod +x {dst / 'discore.py'}")
-    # sshexec(ssh, f"rm -rf {dst / 'venv'}")
+        # ----------------------------------------
+        print(chalk.green("VastAI setup commands..."))
+        sshexec(ssh, f"apt-get install python3-venv -y")
+        sshexec(ssh, f"apt-get install libgl1 -y")
+        sshexec(ssh, f"chmod +x {dst / 'discore.py'}")
+        # sshexec(ssh, f"rm -rf {dst / 'venv'}")
 
-    # ----------------------------------------
-    print(chalk.green("Copying user files..."))
-    if user_conf.vastai_sshfs and not repo_existed:
-        d = Path(user_conf.vastai_sshfs_path).expanduser()
-        open_in_explorer(d)
+        # ----------------------------------------
+        print(chalk.green("Copying user files..."))
+        if user_conf.vastai_sshfs and not repo_existed:
+            d = Path(user_conf.vastai_sshfs_path).expanduser()
+            open_in_explorer(d)
 
-    for file in deploy_copy:
-        src_file = src / file
-        dst_file = dst / file
-        if src_file.is_dir():
-            sftp.mkdir(dst_file.as_posix(), ignore_existing=True)
-            sftp.put_dir(src_file.as_posix(), dst_file.as_posix())
-        else:
-            print(f"Uploading {src_file.as_posix()} to {dst_file.as_posix()}")
-            sftp.put(src_file.as_posix(), dst_file.as_posix())
-    sftp.close()
+        for file in deploy_copy:
+            src_file = src / file
+            dst_file = dst / file
+            if src_file.is_dir():
+                sftp.mkdir(dst_file.as_posix(), ignore_existing=True)
+                sftp.put_dir(src_file.as_posix(), dst_file.as_posix())
+            else:
+                print(f"Uploading {src_file.as_posix()} to {dst_file.as_posix()}")
+                sftp.put(src_file.as_posix(), dst_file.as_posix())
+        sftp.close()
 
 
     # Open a shell

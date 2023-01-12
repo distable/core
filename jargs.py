@@ -30,8 +30,8 @@ argp.add_argument('--mpv', action='store_true', help='Open the resulting video i
 argp.add_argument('--shell', action='store_true', default=None, help='Open a shell in the deployed remote.')
 argp.add_argument('--local', action='store_true', help='Deploy locally. (test)')
 argp.add_argument('--vastai', action='store_true', help='Deploy to VastAI.')
-argp.add_argument('--vastai_recreate', action='store_true', help='rm -rf the deployment and start anew.')
 argp.add_argument('--vastai_search', type=str, default=None, help='Search for a VastAI server')
+argp.add_argument('--vastai_continue', action='store_true', help='rm -rf the deployment and start anew.')
 
 args = argp.parse_args()
 original_args = sys.argv[1:]

@@ -61,6 +61,7 @@ class SFTPClient(paramiko.SFTPClient):
 
     def exists(self, path):
         try:
+            print(f'check if {path} exists', self.stat(path))
             self.stat(path)
             return True
         except:
