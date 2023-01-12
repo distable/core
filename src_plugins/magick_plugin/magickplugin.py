@@ -2,7 +2,7 @@ import os
 
 import cv2
 import numpy as np
-import wand.image
+# import wand.image
 from PIL import Image, ImageEnhance
 
 from src_core.classes import paths
@@ -148,16 +148,12 @@ class MagickPlugin(Plugin):
         sat = (j.sat - sat_mean) * j.speed
         contrast = (j.contrast - contrast_mean) * j.speed
 
-        hue = 100 + hue * 100
-        sat = 100 + sat * 100
-        val = 100 + val * 100
+        hue = 255 + hue * 255
+        sat = 255 + sat * 255
+        val = 255 + val * 255
 
         # Equivalent with wand
-        with wand.image.Image.from_array(np.array(img)) as img:
-            img.modulate(brightness=val, saturation=sat, hue=hue)
-            # img.contrast_stretch(black_point=contrast, white_point=1 - contrast)
-            img = cv2.cvtColor(np.array(img), cv2.COLOR_RGB2BGR)
-            return wnd_to_pil(img)
+        self.add_hsv(hue, sat, val)
 
     @plugjob
     def ccadd(self, j: hsvc_add_job):
@@ -171,25 +167,18 @@ class MagickPlugin(Plugin):
         # img = ImageEnhance.Brightness(img).enhance(j.val)
         # img = ImageEnhance.Contrast(img).enhance(j.contrast)
 
-        # hsv = img.convert('HSV')
-        # h, s, v = hsv.split()
-        # h += j.hue * 255
-        # s += j.sat * 255
-        # v += j.val * 255
-        # hsv = Image.merge('HSV', (h, s, v))
-        # img = hsv.convert('RGB')
-
         # Equivalent with numpy
-        img_hsv = cv2.cvtColor(pil2cv(img), cv2.COLOR_RGB2HSV)
-        img_hsv[:, :, 0] += int(j.hue % 255)
-        img_hsv[:, :, 1] += int(clamp(j.sat, -255, 255))
-        img_hsv[:, :, 2] += int(clamp(j.val, -255, 255))
-        img = cv2.cvtColor(img_hsv, cv2.COLOR_HSV2RGB)
+        img = self.add_hsv(j.hue, img, j.sat, j.val)
 
         return cv2pil(img)
-        # with wand.image.Image.from_array(np.array(j.ctx.image)) as img:
-        #     img.modulate(brightness=j.val, saturation=j.sat, hue=j.hue)
-        #     return wnd_to_pil(img)
+
+    def add_hsv(self, hue, img, sat, val):
+        img_hsv = cv2.cvtColor(pil2cv(img), cv2.COLOR_RGB2HSV)
+        img_hsv[:, :, 0] += int(hue % 255)
+        img_hsv[:, :, 1] += int(clamp(sat, -255, 255))
+        img_hsv[:, :, 2] += int(clamp(val, -255, 255))
+        img = cv2.cvtColor(img_hsv, cv2.COLOR_HSV2RGB)
+        return img
 
     @plugjob
     def denoise(self, j: denoise_job):

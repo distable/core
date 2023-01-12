@@ -46,6 +46,11 @@ sd.no_half = True
 sd.no_half_vae = True
 sd.batch_cond_uncond = False
 
+# Deployment
+# ----------------------------------------
+vastai_default_search = "gpu_name=RTX_3090"
+vastai_sshfs = True # Mount via sshfs
+vastai_sshfs_path = "~/discore/mount/"
 
 # # Plugin config
 # # ----------------------------------------

@@ -8,7 +8,7 @@ import numpy as np
 import piexif
 import piexif.helper
 from PIL import Image, ImageFont, ImageDraw, PngImagePlugin
-from fonts.ttf import Roboto
+# from fonts.ttf import Roboto
 import string
 
 import src_plugins.sd1111_plugin.SDState
