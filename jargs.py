@@ -38,5 +38,4 @@ original_args = sys.argv[1:]
 spaced_args = ' '.join([f'"{arg}"' for arg in original_args])
 
 # Eat up arguments
-print(original_args)
 sys.argv = [sys.argv[0]]
