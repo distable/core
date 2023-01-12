@@ -321,10 +321,12 @@ def deploy_vastai():
     def print_instance(e):
         print(chalk.green_bright(f'{i + 1} - {e["model"]} - {e["num"]} -  {e["price"]} $/hr - {e["status"]}'))
 
+    print("Deployed instances:")
     instances = fetch_instances()
     selected_id = None  # The instance to boot up
     for i, e in enumerate(instances):
         print_instance(e)
+    print("")
 
     # 1. Choose or create instance
     # ----------------------------------------
