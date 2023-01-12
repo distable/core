@@ -3,7 +3,7 @@ import os
 
 def sshexec(ssh, cmd, with_printing=True):
     if with_printing:
-        print(f'sshexec({cmd})')
+        print(f'$ {cmd}')
     stdin, stdout, stderr = ssh.exec_command(cmd)
     stdout.channel.set_combine_stderr(True)
     ret = []
@@ -43,8 +43,11 @@ class SFTPClient(paramiko.SFTPClient):
                 if os.path.getsize(os.path.join(source, item)) > self.max_size:
                     if item in self.urls:
                         url = self.urls[item]
-                        sshexec(self.ssh, f"wget {url} -O {os.path.join(source, item)}")
-                        continue
+                        if url:
+                            sshexec(self.ssh, f"wget {url} -O {os.path.join(target, item)}")
+                            continue
+                        else:
+                            print(chalk.red("<!> Invalid URL '{url}' for "), item)
 
                     from yachalk import chalk
                     print(chalk.red("<!> File too big, skipping"), item)

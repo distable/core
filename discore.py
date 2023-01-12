@@ -92,7 +92,6 @@ def main():
 
     # Deployment
     # ----------------------------------------
-    print(args.vastai)
     if args.local:
         from deploy import deploy_local
         deploy_local()

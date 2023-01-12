@@ -211,12 +211,13 @@ def deploy_vastai():
     # ----------------------------------------
     src = paths.root
     dst = Path("/workspace/discore_deploy")
-    if args.vastai_recreate:
-        print(chalk.green("--vastai_recreate"))
-        sshexec(ssh, f"rm -rf {dst}")
 
     repo_existed = sftp.exists(dst)
     print('repo_existed', repo_existed)
+
+    if args.vastai_recreate:
+        print(chalk.green("--vastai_recreate"))
+        sshexec(ssh, f"rm -rf {dst}")
 
     # Deployment steps
     # ----------------------------------------

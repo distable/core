@@ -10,15 +10,12 @@ import threading
 from copy import copy
 from datetime import datetime
 
-import jargs
 import src_core.classes.common
 import src_core.core
-from src_core.classes import printlib
 from src_core.classes.common import extract_dict
 from src_core.classes.Job import Job
-from src_core.classes.logs import logjob, logjob_err
+from src_core.classes.logs import logjob_err
 from src_core.classes.MockServer import MockServer
-from src_core.classes.PipeData import PipeData
 
 jobs: list[Job] = []  # All jobs currently managed (queued or processing)
 queued: list[Job] = []  # jobs currently in the queue
@@ -86,13 +83,13 @@ def run(job):
     server.emit('job_started', job.uid)
 
     # Run the job for N repeats  ----------------------------------------
-    args = copy(args.args)
+    args = copy(job.args)
     args.job = job
     args.ctx = job.ctx
     args.session = job.session
 
     ret = None
-    for i in range(args.args.job_repeats):
+    for i in range(args.job_repeats):
         if job.aborting: break
         ret = plugins.run(args, require_loaded=True)
         if job.aborting: break
