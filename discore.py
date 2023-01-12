@@ -42,8 +42,9 @@ argp.add_argument('--music_start', type=float, default=0, help='Music start time
 argp.add_argument('--mpv', action='store_true', help='Open the resulting video in MPV.')
 
 # Deployment
-argp.add_argument('--deploy', type=str, default='none', help='Deploy to provider')
 argp.add_argument('--shell', action='store_true', default=None, help='Open a shell in the deployed remote.')
+argp.add_argument('--local', action='store_true', help='Deploy locally. (test)')
+argp.add_argument('--vastai', action='store_true', help='Deploy to VastAI.')
 argp.add_argument('--vastai_search', type=str, default=None, help='Search for a VastAI server')
 
 # Video argument creates a video for the session name
@@ -51,6 +52,8 @@ args = argp.parse_args()
 
 # Eat up arguments
 original_args = sys.argv[1:]
+spaced_args = ' '.join([f'"{arg}"' for arg in original_args])
+print(original_args)
 sys.argv = [sys.argv[0]]
 
 os.chdir(Path(__file__).parent)
@@ -94,7 +97,6 @@ if not args.run:
             os.system(f"{VENV_DIR}/bin/pip install -r requirements.txt")
         print('Upgrading to latest version')
 
-    spaced_args = ' '.join([f'"{arg}"' for arg in original_args])
     if args.no_venv:
         os.system(f"bash -c '{sys.executable} {__file__} {spaced_args} --upgrade --run'")
     else:
@@ -129,11 +131,18 @@ def main():
     from src_core import renderer
     renderer.args = args
 
+
     if args.newplug:
         plugin_wizard()
         return
 
-    if args.deploy == 'none':
+    # Deployment
+    # ----------------------------------------
+    if args.local:
+        deploy_local()
+    elif args.vastai:
+        deploy_vastai()
+    else:
         from src_core.classes import common
         common.setup_ctrl_c(on_ctrl_c)
 
@@ -178,21 +187,6 @@ def main():
             # Start server
             from src_core import server
             server.run()
-
-    # Deployment
-    # ----------------------------------------
-    if args.deploy == 'local':
-        # A test deployment to local machine (new installation with the configuration ready to run)
-        deploy_local()
-    elif args.deploy == 'run':
-        # Run the deployment setup requested by the host (action, script, etc.)
-        pass
-    elif args.deploy == 'vast':
-        # Ask user for vast credentials, choose a server, and deploy to it
-        deploy_vastai()  # TODO Options to keep the instance open
-    else:
-        print('Unknown deployment provider.')
-        exit(1)
 
 
 # User files/directories to copy at the start of a deployment
@@ -337,7 +331,8 @@ def deploy_vastai():
 
     # 1. Choose or create instance
     # ----------------------------------------
-    selected_id = instances[0]['id']
+    if len(instances) >= 1:
+        selected_id = instances[0]['id']
     # while len(instances) >= 1:
     #     try:
     #         s = input("Choose an instance or type 'n' to create a new one: ")
@@ -478,10 +473,19 @@ def deploy_vastai():
     sshexec(ssh, f"rm -rf {dst / 'venv'}")
     sshexec(ssh, f"whoami")
 
+
+
     # Start a ssh shell for the user
-    launch_cmd = f"{kitty_cmd} 'cd /workspace/discore_deploy/; /opt/conda/bin/python3 {dst / 'discore.py'} --upgrade --no-venv'"
+    launch_cmd = f"{kitty_cmd} 'cd /workspace/discore_deploy/; /opt/conda/bin/python3 {dst / 'discore.py'}"
+    oargs = original_args
+    oargs.remove('--vastai')
+    launch_cmd += f' {" ".join(oargs)}'
+    launch_cmd += f' --upgrade --no-venv'
+    launch_cmd += "'"
+
     print(launch_cmd)
     os.system(launch_cmd)
+
     # interactive.interactive_shell(channel)
 
 
