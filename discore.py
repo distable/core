@@ -59,9 +59,9 @@ os.chdir(Path(__file__).parent)
 
 if not args.run:
     # Disallow running as root
-    if os.geteuid() == 0:
-        print("Please do not run as root")
-        exit(1)
+    # if os.geteuid() == 0:
+    #     print("Please do not run as root")
+    #     exit(1)
 
     # Check that we're running python 3.9 or higher
     if sys.version_info < (3, 9):
@@ -313,7 +313,7 @@ def deploy_vastai():
         print(f'{i + 1} - {e["model"]} - {e["num"]} -  {e["price"]} $/hr - {e["status"]}')
 
     instances = fetch_instances()
-    instance = None  # The instance to boot up
+    selected_id = None  # The instance to boot up
     for i, e in enumerate(instances):
         print_instance(e)
 
@@ -324,12 +324,12 @@ def deploy_vastai():
             s = input("Choose an instance or type 'n' to create a new one: ")
             if s == 'n':
                 break;
-            instance = instances[int(s) - 1]
+            selected_id = instances[int(s) - 1]['id']
             break
         except:
             print("Invalid choice")
 
-    if instance is None:
+    if selected_id is None:
         # Create new instance
         # ----------------------------------------
         while True:
@@ -355,33 +355,37 @@ def deploy_vastai():
 
         # Create the machine
         # Example command: ./vast create instance 36842 --image vastai/tensorflow --disk 32
-        choice = offers[choice - 1]['id']
-        out = subprocess.check_output(['python3', vastpath, 'create', 'instance', choice, '--image', 'pytorch/pytorch', '--disk', '32']).decode('utf-8')
+        selected_id = offers[choice - 1]['id']
+        out = subprocess.check_output(['python3', vastpath, 'create', 'instance', selected_id, '--image', 'pytorch/pytorch', '--disk', '32']).decode('utf-8')
         if 'Started.' not in out:
             print("Failed to create instance:")
             print(out)
             return
 
-        print(f"Successfully created instance {choice}!")
-
         time.sleep(3)
 
-        # Select the instance we just created
-        instances = fetch_instances()
-        instance = [i for i in instances if i['id'] == choice][0]
+        print(f"Successfully created instance {choice}!")
+
+    def wait_for_instance(id):
+        printed_loading = False
+        ins = None
+        while ins is None or ins['status'] != 'running':
+            ins = [i for i in fetch_instances() if i['id'] == id][0]
+
+            if ins is not None and ins['status'] == 'running':
+                return ins
+
+            if ins is not None and ins['status'] != 'running':
+                if not printed_loading:
+                    print(f"Waiting for {id} to finish loading...")
+                    printed_loading = True
+
+            time.sleep(3)
 
     # 2. Wait for instance to be ready
     # ----------------------------------------
-    if instance['status'] == 'loading':
-        print("Waiting for the instance to finish loading...")
-        while True:
-            instances = fetch_instances()
-            instance = [i for i in instances if i['id'] == instance['id']][0]
-            if instance['status'] != 'loading':
-                break
-            time.sleep(3)
-
     time.sleep(3)
+    instance = wait_for_instance(selected_id)
 
     # 3. Connections
     # ----------------------------------------
@@ -399,14 +403,10 @@ def deploy_vastai():
 
     if user_conf.vastai_sshfs:
         # Use sshfs to mount the machine
-        d = Path(user_conf.vastai_sshfs_path).expanduser()
-        print(d)
+        d = Path(user_conf.vastai_sshfs_path).expanduser() / 'discore_deploy'
         d.mkdir(parents=True, exist_ok=True)
         os.system(f"umount {d}")
         os.system(f"sshfs root@{ip}:/workspace -p {port} {d}")
-
-        # Open file manager at d
-        open_in_explorer(d)
 
     # Open a shell
     if args.shell:
@@ -420,9 +420,13 @@ def deploy_vastai():
     sshexec(ssh, "ls /workspace/")
 
     # Deployment steps
-    # cmds = get_deploy_commands(dst.as_posix())
-    # for cmd in cmds:
-    #     sshexec(ssh, ' '.join(cmd))
+    cmds = get_deploy_commands(dst.as_posix())
+    for cmd in cmds:
+        sshexec(ssh, ' '.join(cmd))
+
+    if user_conf.vastai_sshfs:
+        d = Path(user_conf.vastai_sshfs_path).expanduser()
+        open_in_explorer(d)
 
     from src_core.ssh.sftpclient import SFTPClient
     sftp = SFTPClient.from_transport(ssh.get_transport())
@@ -439,8 +443,8 @@ def deploy_vastai():
     sshexec(ssh, f"{dst / 'discore.py'} --upgrade", True)
 
     # Start a ssh shell for the user
-    channel = ssh.invoke_shell()
-    interactive.interactive_shell(channel)
+    # channel = ssh.invoke_shell()
+    # interactive.interactive_shell(channel)
 
 
 def plugin_wizard():

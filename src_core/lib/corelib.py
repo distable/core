@@ -1,4 +1,5 @@
 import os
+import subprocess
 from pathlib import Path
 
 
@@ -11,7 +12,7 @@ def open_in_explorer(path):
     if os.name == 'nt':
         os.startfile(path)
     elif os.name == 'linux' or os.name == 'posix':
-        os.system(f'xdg-open "{path}"')
+        subprocess.Popen(f'xdg-open "{path}"', stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
     else:
         raise Exception(f"open_in_explorer: Unsupported OS '{os.name}' ")
 

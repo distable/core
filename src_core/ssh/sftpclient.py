@@ -9,6 +9,7 @@ class SFTPClient(paramiko.SFTPClient):
         '''
         for item in os.listdir(source):
             if os.path.isfile(os.path.join(source, item)):
+                print("Uploading %s to %s" % (os.path.join(source, item), target))
                 self.put(os.path.join(source, item), '%s/%s' % (target, item))
             else:
                 self.mkdir('%s/%s' % (target, item), ignore_existing=True)
