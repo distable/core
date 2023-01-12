@@ -25,6 +25,7 @@ argp.add_argument("subdir", nargs="?", default='', help="Subdir in the session")
 
 argp.add_argument('--run', action='store_true', help='Perform the run in a subprocess')
 argp.add_argument("--recreate-venv", action="store_true")
+argp.add_argument("--no-venv", action="store_true")
 argp.add_argument('--upgrade', action='store_true', help='Upgrade to latest version')
 argp.add_argument('--install', action='store_true', help='Install plugins requirements and custom installations.')
 
@@ -59,37 +60,44 @@ os.chdir(Path(__file__).parent)
 
 if not args.run:
     # Disallow running as root
-    # if os.geteuid() == 0:
-    #     print("Please do not run as root")
-    #     exit(1)
+    if os.geteuid() == 0:
+        print("You are warning as root, proceed at your own risks")
 
     # Check that we're running python 3.9 or higher
     if sys.version_info < (3, 9):
         print(f"Warning your python version {sys.version_info} is detected as lower than 3.9, you may be fucked, proceed at your own risks")
 
-    # Checkb that we have git installed
+    # Check that we have git installed
     if not os.path.exists("/usr/bin/git"):
         print("Please install git")
         exit(1)
 
     # Create a virtual environment if it doesn't exist
-    if not os.path.exists(VENV_DIR) or args.recreate_venv:
-        if args.recreate_venv:
-            shutil.rmtree(VENV_DIR)
+    if not args.no_venv:
+        if not os.path.exists(VENV_DIR) or args.recreate_venv:
+            if args.recreate_venv:
+                shutil.rmtree(VENV_DIR)
 
-        os.system(f"python3 -m venv {VENV_DIR}")
-        argp.upgrade = True
+            os.system(f"python3 -m venv {VENV_DIR}")
+            argp.upgrade = True
 
-    # Run bash shell with commands to activate the virtual environment and run the launch script
-    spaced_args = ' '.join([f'"{arg}"' for arg in original_args])
-    os.system(f"bash -c 'source {VENV_DIR}/bin/activate'")
+        # Run bash shell with commands to activate the virtual environment and run the launch script
+        spaced_args = ' '.join([f'"{arg}"' for arg in original_args])
+        os.system(f"bash -c 'source {VENV_DIR}/bin/activate'")
 
     if args.upgrade:
         # Install requirements with venv pip
-        os.system(f"{VENV_DIR}/bin/pip install -r requirements.txt")
+        if args.no_venv:
+            os.system(f"pip install -r requirements.txt")
+        else:
+            os.system(f"{VENV_DIR}/bin/pip install -r requirements.txt")
         print('Upgrading to latest version')
 
-    os.system(f"bash -c 'source {VENV_DIR}/bin/activate && python3 {__file__} {spaced_args} --upgrade --run'")
+    if args.no_venv:
+        os.system(f"bash -c 'python3 {__file__} {spaced_args} --upgrade --run'")
+    else:
+        os.system(f"bash -c 'source {VENV_DIR}/bin/activate && python3 {__file__} {spaced_args} --upgrade --run'")
+
     exit(0)
 
 # ----------------------------------------
@@ -441,7 +449,7 @@ def deploy_vastai():
     sftp.close()
 
     sshexec(ssh, f"chmod +x {dst / 'discore.py'}", True)
-    sshexec(ssh, f"{dst / 'discore.py'} --upgrade", True)
+    sshexec(ssh, f"{dst / 'discore.py'} --upgrade --no-venv", True)
 
     # Start a ssh shell for the user
     # channel = ssh.invoke_shell()
