@@ -10,7 +10,7 @@ import sys
 import time
 from pathlib import Path
 
-import interactive
+from src_core.lib.corelib import open_in_explorer
 
 
 DEFAULT_ACTION = 'render'
@@ -104,6 +104,7 @@ if not args.run:
 
 import user_conf
 from src_core.classes import paths
+import interactive
 
 
 def determine_session():
@@ -305,13 +306,11 @@ def deploy_vastai():
             instances.append(dict(id=line[0], machine=line[1], status=line[2], num=line[3], model=line[4], util=line[5], vcpus=line[6], ram=line[7], storage=line[8], sshaddr=line[9], sshport=line[10], price=line[11], image=line[12], netup=line[13], netdown=line[14], r=line[15], label=line[16]))
         return instances
 
-
     def print_offer(e):
         print(f'{i + 1} - {e["model"]} - {e["num"]} - {e["dlp"]} - {e["price"]} $/hr - {e["dlpprice"]} DLP/HR')
 
-
     def print_instance(e):
-        print(f'{i + 1} - {e["model"]} - {e["num"]} - {e["util"]} - {e["price"]} - {e["status"]}')
+        print(f'{i + 1} - {e["model"]} - {e["num"]} -  {e["price"]} $/hr - {e["status"]}')
 
     instances = fetch_instances()
     instance = None  # The instance to boot up
@@ -365,6 +364,8 @@ def deploy_vastai():
 
         print(f"Successfully created instance {choice}!")
 
+        time.sleep(3)
+
         # Select the instance we just created
         instances = fetch_instances()
         instance = [i for i in instances if i['id'] == choice][0]
@@ -378,7 +379,9 @@ def deploy_vastai():
             instance = [i for i in instances if i['id'] == instance['id']][0]
             if instance['status'] != 'loading':
                 break
-            time.sleep(5)
+            time.sleep(3)
+
+    time.sleep(3)
 
     # 3. Connections
     # ----------------------------------------
@@ -392,6 +395,8 @@ def deploy_vastai():
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
     ssh.connect(ip, port=int(port), username='root')
 
+    print(f"ssh -p {port} root@{ip}")
+
     if user_conf.vastai_sshfs:
         # Use sshfs to mount the machine
         d = Path(user_conf.vastai_sshfs_path).expanduser()
@@ -399,6 +404,9 @@ def deploy_vastai():
         d.mkdir(parents=True, exist_ok=True)
         os.system(f"umount {d}")
         os.system(f"sshfs root@{ip}:/workspace -p {port} {d}")
+
+        # Open file manager at d
+        open_in_explorer(d)
 
     # Open a shell
     if args.shell:
@@ -412,21 +420,27 @@ def deploy_vastai():
     sshexec(ssh, "ls /workspace/")
 
     # Deployment steps
-    cmds = get_deploy_commands(dst.as_posix())
-    for cmd in cmds:
-        sshexec(ssh, ' '.join(cmd))
+    # cmds = get_deploy_commands(dst.as_posix())
+    # for cmd in cmds:
+    #     sshexec(ssh, ' '.join(cmd))
 
-    sftp = ssh.open_sftp()
+    from src_core.ssh.sftpclient import SFTPClient
+    sftp = SFTPClient.from_transport(ssh.get_transport())
     for file in deploy_copy:
         src_file = src / file
         dst_file = dst / file
         print(f"Copying {src_file} to {dst_file}")
-        sftp.put(str(src_file),
-                 str(dst_file))
+        if src_file.is_dir():
+            sftp.mkdir(dst_file.as_posix(), ignore_existing=True)
+            sftp.put_dir(src_file, dst_file)
     sftp.close()
 
     sshexec(ssh, f"chmod +x {dst / 'discore.py'}", True)
     sshexec(ssh, f"{dst / 'discore.py'} --upgrade", True)
+
+    # Start a ssh shell for the user
+    channel = ssh.invoke_shell()
+    interactive.interactive_shell(channel)
 
 
 def plugin_wizard():

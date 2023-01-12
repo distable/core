@@ -1,6 +1,6 @@
 [submodule "src_plugins/sd1111_plugin"]
 	path = src_plugins/sd1111_plugin
-	url = git@github.com:stablecore-ai/sd1111_plugin.git
+	url = git@github.com:discore/sd1111_plugin.git
 [submodule "src_core/classes"]
 	path = src_core/classes
-	url = https://github.com/distable/core-lib
+	url = https://github.com/discore/core-lib
