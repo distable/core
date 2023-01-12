@@ -26,7 +26,7 @@ class SFTPClient(paramiko.SFTPClient):
         }
         self.ssh = None
 
-    def put_dir(self, source, target):
+    def put_dir(self, source, target, ignore_exts=[]):
         """
         Uploads the contents of the source directory to the target path. The
         target directory needs to exists. All subdirectories in source are

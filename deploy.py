@@ -177,6 +177,7 @@ def deploy_vastai():
     username = 'root'
     ip = instance['sshaddr']
     port = instance['sshport']
+    print(chalk.green(f"Establishing connections root@{ip}:{port}..."))
 
     ssh = paramiko.SSHClient()
     ssh.load_host_keys(os.path.expanduser(os.path.join('~', '.ssh', 'known_hosts')))
@@ -196,26 +197,43 @@ def deploy_vastai():
     print(kitty_cmd)
     print("")
 
+    # Print ls
+    sshexec(ssh, "ls /workspace/")
+
     if user_conf.vastai_sshfs:
+        print(chalk.green("Mounting with sshfs..."))
         # Use sshfs to mount the machine
         d = Path(user_conf.vastai_sshfs_path).expanduser() / 'discore_deploy'
         d.mkdir(parents=True, exist_ok=True)
         os.system(f"umount {d}")
         os.system(f"sshfs root@{ip}:/workspace -p {port} {d}")
 
-    # Deploy like in local
+    # ----------------------------------------
     src = paths.root
     dst = Path("/workspace/discore_deploy")
-    sshexec(ssh, "ls /workspace/")
+    if args.vastai_recreate:
+        print(chalk.green("--vastai_recreate"))
+        sshexec(ssh, f"rm -rf {dst}")
 
     repo_existed = sftp.exists(dst)
     print('repo_existed', repo_existed)
 
     # Deployment steps
+    # ----------------------------------------
+    print(chalk.green("Deployment commands..."))
     cmds = get_deploy_commands(dst.as_posix())
     for cmd in cmds:
         sshexec(ssh, ' '.join(cmd))
 
+    # ----------------------------------------
+    print(chalk.green("VastAI setup commands..."))
+    sshexec(ssh, f"apt-get install python3-venv -y")
+    sshexec(ssh, f"apt-get install libgl1 -y")
+    sshexec(ssh, f"chmod +x {dst / 'discore.py'}")
+    # sshexec(ssh, f"rm -rf {dst / 'venv'}")
+
+    # ----------------------------------------
+    print(chalk.green("Copying user files..."))
     if user_conf.vastai_sshfs and not repo_existed:
         d = Path(user_conf.vastai_sshfs_path).expanduser()
         open_in_explorer(d)
@@ -231,24 +249,20 @@ def deploy_vastai():
             sftp.put(src_file.as_posix(), dst_file.as_posix())
     sftp.close()
 
+
     # Open a shell
     if args.shell:
+        print(chalk.green("--shell"))
         # Start a ssh shell for the user
         channel = ssh.invoke_shell()
         interactive.interactive_shell(channel)
-
-    sshexec(ssh, f"apt-get install python3-venv -y")
-    sshexec(ssh, f"apt-get install libgl1 -y")
-    sshexec(ssh, f"chmod +x {dst / 'discore.py'}")
-    sshexec(ssh, f"rm -rf {dst / 'venv'}")
-    sshexec(ssh, f"whoami")
 
     # Start a ssh shell for the user
     launch_cmd = f"{kitty_cmd} 'cd /workspace/discore_deploy/; /opt/conda/bin/python3 {dst / 'discore.py'}"
     oargs = original_args
     oargs.remove('--vastai')
     launch_cmd += f' {" ".join(oargs)}'
-    launch_cmd += f' --upgrade --no-venv'
+    launch_cmd += f' --upgrade --no_venv'
     launch_cmd += "'"
 
     print(launch_cmd)

@@ -9,8 +9,8 @@ argp.add_argument("action", nargs="?", default=None, help="Script or action to r
 argp.add_argument("subdir", nargs="?", default='', help="Subdir in the session")
 
 argp.add_argument('--run', action='store_true', help='Perform the run in a subprocess')
-argp.add_argument("--recreate-venv", action="store_true")
-argp.add_argument("--no-venv", action="store_true")
+argp.add_argument("--recreate_venv", action="store_true")
+argp.add_argument("--no_venv", action="store_true")
 argp.add_argument('--upgrade', action='store_true', help='Upgrade to latest version')
 argp.add_argument('--install', action='store_true', help='Install plugins requirements and custom installations.')
 
@@ -30,6 +30,7 @@ argp.add_argument('--mpv', action='store_true', help='Open the resulting video i
 argp.add_argument('--shell', action='store_true', default=None, help='Open a shell in the deployed remote.')
 argp.add_argument('--local', action='store_true', help='Deploy locally. (test)')
 argp.add_argument('--vastai', action='store_true', help='Deploy to VastAI.')
+argp.add_argument('--vastai_recreate', action='store_true', help='rm -rf the deployment and start anew.')
 argp.add_argument('--vastai_search', type=str, default=None, help='Search for a VastAI server')
 
 args = argp.parse_args()
