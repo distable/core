@@ -11,7 +11,6 @@ from src_core.classes.paths import get_script_file_path, parse_action_script
 from src_core.classes.printlib import pct, trace
 from src_core.hud import hud, save_hud
 
-
 # TODO support a pygame or moderngl window to render to
 # TODO support ryusig
 
@@ -149,6 +148,7 @@ def render_loop(lo=None, hi=None):
 
     lprompt = ""
 
+    i = 0
     hi = hi if hi is not None else max_duration * fps
     while core.f < hi:
         # Iterate all files recursively in paths.script_dir
@@ -166,6 +166,15 @@ def render_loop(lo=None, hi=None):
             lprompt = v.prompt
 
             save_hud()
+            i += 1
+            if args.preview_every and i % args.preview_every == 0:
+                # TODO video preview
+                core.gs.make_video()
+            if args.zip_every and i % args.zip_every == 0:
+                # TODO zip frames
+                core.gs.make_zip()
+
+
 
 
 

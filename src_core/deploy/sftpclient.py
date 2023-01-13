@@ -36,18 +36,18 @@ class SFTPClient(paramiko.SFTPClient):
         self.ip = None
         self.port = None
 
-    def put_any(self, source, target):
+    def put_any(self, source, target, forbid_rsync=False):
         source = Path(source)
         target = Path(target)
 
         if source.is_dir():
             self.mkdir(target.as_posix(), ignore_existing=True)
-            self.put_dir(source.as_posix(), target.as_posix())
+            self.put_dir(source.as_posix(), target.as_posix(), forbid_rsync=forbid_rsync)
         else:
             print(f"Uploading {source.as_posix()} to {target.as_posix()}")
             self.put(source.as_posix(), target.as_posix())
 
-    def put_dir(self, source, target, ignore_exts=[]):
+    def put_dir(self, source, target, forbid_rsync=False, ignore_exts=[]):
         """
         Uploads the contents of the source directory to the target path. The
         target directory needs to exists. All subdirectories in source are
@@ -56,8 +56,10 @@ class SFTPClient(paramiko.SFTPClient):
         import yachalk as chalk
         print(f"{target} ({chalk.chalk.dim(target)})")
 
-        if self.rsync:
-            os.system(f"rsync -avz --exclude '*/' -e 'ssh -p {self.port}' {source} root@{self.ip}:{target}")
+        if self.rsync and not forbid_rsync:
+            cm = f"rsync -avz -e 'ssh -p {self.port}' {source} root@{self.ip}:{target}"
+            print(cm)
+            os.system(cm)
             return
 
         self.mkdir(target, ignore_existing=True)
@@ -87,7 +89,7 @@ class SFTPClient(paramiko.SFTPClient):
                 self.put(os.path.join(source, item), '%s/%s' % (target, item))
             else:
                 self.mkdir('%s/%s' % (target, item), ignore_existing=True)
-                self.put_dir(os.path.join(source, item), '%s/%s' % (target, item))
+                self.put_dir(os.path.join(source, item), '%s/%s' % (target, item), forbid_rsync=forbid_rsync)
 
     def print_upload(self, item, source, target):
         print(f"Uploading {os.path.join(source, item)} to {target}")

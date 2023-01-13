@@ -10,15 +10,16 @@ from src_core.lib.corelib import open_in_explorer
 
 
 # User files/directories to copy at the start of a deployment
-deploy_copy = ['requirements.txt',
+deploy_rsync = ['requirements.txt',
                'discore.py',
                'deploy.py',
                'jargs.py',
-               paths.userconf_name,
-               paths.scripts_name,
-               paths.plug_res_name,
-               paths.src_core_name,
-               paths.src_plugins_name]
+                paths.userconf_name,
+                paths.scripts_name,
+                paths.src_core_name,
+                paths.src_plugins_name]
+
+deploy_put = [paths.plug_res_name]
 
 
 # Commands to run in order to setup a deployment
@@ -279,10 +280,16 @@ def deploy_vastai():
             d = Path(user_conf.vastai_sshfs_path).expanduser()
             open_in_explorer(d)
 
-        for file in deploy_copy:
+        for file in deploy_rsync:
             src_file = src / file
             dst_file = dst / file
             sftp.put_any(src_file, dst_file)
+
+        for file in deploy_put:
+            src_file = src / file
+            dst_file = dst / file
+            sftp.put_any(src_file, dst_file, forbid_rsync=True)
+
         sftp.close()
 
     # Open a shell
@@ -342,7 +349,7 @@ def deploy_local():
     for cmd in cmds:
         subprocess.run(cmd)
 
-    for file in deploy_copy:
+    for file in deploy_rsync:
         shutil.copyfile(src / file, dst / file)
 
     # 3. Run ~/discore_deploy/discore.py

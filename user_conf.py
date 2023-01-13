@@ -5,9 +5,9 @@ from src_core.conf import *
 # ----------------------------------------
 
 precision = "full"
-print_timing = False
-print_trace = False
-print_gputrace = False
+print_timing = True
+print_trace = True
+print_gputrace = True
 print_extended_init = True
 print_more2 = True
 share = False

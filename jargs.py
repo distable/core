@@ -18,6 +18,11 @@ argp.add_argument('--install', action='store_true', help='Install plugins requir
 argp.add_argument("--dry", action="store_true")
 argp.add_argument("--newplug", action="store_true", help="Create a new plugin with the plugin wizard")
 
+# Renderer arguments
+argp.add_argument('--zip_every', type=int, default=None, help='Create a zip of the frames every specified number of frames.')
+argp.add_argument('--preview_every', type=int, default=None, help='Create a preview video every number of frames. (with ffmpeg)')
+argp.add_argument('--preview_command', type=str, default='', help='The default ffmpeg command to use for preview videos.')
+
 # Script Arguments
 argp.add_argument('--fps', type=int, default=30, help='FPS')
 argp.add_argument('--frames', type=str, default=None, help='The frames to render in first:last format')
