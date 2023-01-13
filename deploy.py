@@ -259,16 +259,18 @@ def deploy_vastai():
         interactive.interactive_shell(channel)
 
     # Start a ssh shell for the user
+    launch_cmd = f"{kitty_cmd} 'cd /workspace/discore_deploy/; /opt/conda/bin/python3 {dst / 'discore.py'} --upgrade --no_venv'"
+    os.system(launch_cmd)
+
     launch_cmd = f"{kitty_cmd} 'cd /workspace/discore_deploy/; /opt/conda/bin/python3 {dst / 'discore.py'}"
     oargs = original_args
     oargs.remove('--vastai')
     launch_cmd += f' {" ".join(oargs)}'
-    launch_cmd += f' --upgrade --no_venv'
+
+    launch_cmd += f' --no_venv'
     if not args.vastai_continue:
         launch_cmd += f' --install'
-    launch_cmd += "'"
 
-    print(launch_cmd)
     os.system(launch_cmd)
 
     # interactive.interactive_shell(channel)

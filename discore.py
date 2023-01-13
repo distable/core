@@ -51,6 +51,7 @@ if not args.run:
         else:
             os.system(f"{VENV_DIR}/bin/pip install -r requirements.txt")
         print('Upgrading to latest version')
+        exit(0)
 
     if args.no_venv:
         os.system(f"bash -c '{sys.executable} {__file__} {spaced_args} --upgrade --run'")
