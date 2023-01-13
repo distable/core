@@ -52,11 +52,11 @@ vastai_default_search = "gpu_name=RTX_3090"
 vastai_sshfs = True # Mount via sshfs
 vastai_sshfs_path = "~/discore/mount/"
 
-# deploy_urls = {
-#     'sd-v1-5.ckpt' : 'https://huggingface.co/runwayml/stable-diffusion-v1-5/resolve/main/v1-5-pruned-emaonly.ckpt',
-#     'vae.vae.pt' : 'https://huggingface.co/stabilityai/sd-vae-ft-mse-original/resolve/main/vae-ft-mse-840000-ema-pruned.ckpt',
-# }
-deploy_urls = {}
+deploy_urls = {
+    'sd-v1-5.ckpt' : 'https://huggingface.co/runwayml/stable-diffusion-v1-5/resolve/main/v1-5-pruned-emaonly.ckpt',
+    'vae.vae.pt' : 'https://huggingface.co/stabilityai/sd-vae-ft-mse-original/resolve/main/vae-ft-mse-840000-ema-pruned.ckpt',
+}
+# deploy_urls = {}
 
 # # Plugin config
 # # ----------------------------------------

@@ -12,7 +12,7 @@ pytorch_lightning
 scikit-image~=0.19.3
 timm~=0.6.12
 einops~=0.3.2
-# jsonmerge
+jsonmerge
 clean-fid
 resize-right
 torchdiffeq
@@ -51,7 +51,7 @@ transformers==4.19.2
 # stumpy
 python-dateutil~=2.8.2
 opensimplex~=0.4.3
-# torchsde
+torchsde
 # xformers==0.13.0
 psutil~=5.9.4
 paramiko~=2.12.0

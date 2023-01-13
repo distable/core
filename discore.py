@@ -96,7 +96,7 @@ def main():
     if args.local:
         from deploy import deploy_local
         deploy_local()
-    elif args.vastai:
+    elif args.vastai or args.vastai_continue:
         from deploy import deploy_vastai
         deploy_vastai()
     else:

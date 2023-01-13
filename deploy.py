@@ -153,6 +153,15 @@ def deploy_vastai():
 
         time.sleep(3)
 
+        new_instances = fetch_instances()
+        # Diff between old and new instances
+        new_instances = [e for e in new_instances if e['id'] not in [e['id'] for e in instances]]
+
+        if len(new_instances) != 1:
+            print("Failed to create instance, couldn't find the new instance by diffing.")
+            return
+
+        selected_id = new_instances[0]['id']
         print(f"Successfully created instance {selected_id}!")
 
     def wait_for_instance(id):
@@ -195,7 +204,15 @@ def deploy_vastai():
     ssh = paramiko.SSHClient()
     ssh.load_host_keys(os.path.expanduser(os.path.join('~', '.ssh', 'known_hosts')))
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-    ssh.connect(ip, port=int(port), username='root')
+
+    while True:
+            try:
+                # This can fail when the instance just launched
+                ssh.connect(ip, port=int(port), username='root')
+                break
+            except:
+                print("Failed to connect, retrying...")
+                time.sleep(3)
 
     from src_core.deploy.sftpclient import SFTPClient
     sftp = SFTPClient.from_transport(ssh.get_transport())
