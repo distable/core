@@ -72,4 +72,4 @@ def save_hud():
     # Save the new pil
     save_png(new_pil,
              core.gs.current_frame_path('prompt_hud').with_suffix('.png'),
-             with_async=False)
+             with_async=True)
