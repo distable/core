@@ -32,6 +32,7 @@ argp.add_argument('--local', action='store_true', help='Deploy locally. (test)')
 argp.add_argument('--vastai', action='store_true', help='Deploy to VastAI.')
 argp.add_argument('--vastai_search', type=str, default=None, help='Search for a VastAI server')
 argp.add_argument('--vastai_continue', action='store_true', help='rm -rf the deployment and start anew.')
+argp.add_argument('--vastai_copy', action='store_true', help='Copy files even with vastai_continue')
 
 args = argp.parse_args()
 original_args = sys.argv[1:]

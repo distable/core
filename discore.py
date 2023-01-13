@@ -133,7 +133,7 @@ def main():
             # Nothing is specified
             # ----------------------------------------
             from src_core.classes.Session import Session
-            core.init(restore=Session.now())
+            core.init(pluginstall=args.install, restore=Session.now())
 
             # Dry run, only install and exit.
             if args.dry:

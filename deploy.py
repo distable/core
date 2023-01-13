@@ -10,7 +10,13 @@ from src_core.lib.corelib import open_in_explorer
 
 
 # User files/directories to copy at the start of a deployment
-deploy_copy = ['requirements.txt', 'discore.py', paths.userconf_name, paths.scripts_name, paths.plug_res_name]
+deploy_copy = ['requirements.txt',
+               'discore.py',
+               'deploy.py',
+               'jargs.py',
+               paths.userconf_name,
+               paths.scripts_name,
+               paths.plug_res_name]
 
 
 # Commands to run in order to setup a deployment
@@ -179,6 +185,13 @@ def deploy_vastai():
     port = instance['sshport']
     print(chalk.green(f"Establishing connections root@{ip}:{port}..."))
 
+    ssh_cmd = f"ssh -p {port} root@{ip}"
+    kitty_cmd = f"kitty +kitten {ssh_cmd}"
+
+    print(ssh_cmd)
+    print(kitty_cmd)
+    print("")
+
     ssh = paramiko.SSHClient()
     ssh.load_host_keys(os.path.expanduser(os.path.join('~', '.ssh', 'known_hosts')))
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
@@ -189,13 +202,6 @@ def deploy_vastai():
     sftp.max_size = 10 * 1024 * 1024
     sftp.urls = user_conf.deploy_urls
     sftp.ssh = ssh
-
-    ssh_cmd = f"ssh -p {port} root@{ip}"
-    kitty_cmd = f"kitty +kitten {ssh_cmd}"
-
-    print(ssh_cmd)
-    print(kitty_cmd)
-    print("")
 
     # Print ls
     sshexec(ssh, "ls /workspace/")
@@ -233,7 +239,8 @@ def deploy_vastai():
         sshexec(ssh, f"chmod +x {dst / 'discore.py'}")
         # sshexec(ssh, f"rm -rf {dst / 'venv'}")
 
-        # ----------------------------------------
+    # ----------------------------------------
+    if not args.vastai_continue or args.vastai_copy:
         print(chalk.green("Copying user files..."))
         if user_conf.vastai_sshfs and not repo_existed:
             d = Path(user_conf.vastai_sshfs_path).expanduser()
@@ -250,7 +257,6 @@ def deploy_vastai():
                 sftp.put(src_file.as_posix(), dst_file.as_posix())
         sftp.close()
 
-
     # Open a shell
     if args.shell:
         print(chalk.green("--shell"))
@@ -262,6 +268,9 @@ def deploy_vastai():
     launch_cmd = f"{kitty_cmd} 'cd /workspace/discore_deploy/; /opt/conda/bin/python3 {dst / 'discore.py'} --upgrade --no_venv'"
     os.system(launch_cmd)
 
+    launch_cmd = f"{kitty_cmd} 'cd /workspace/discore_deploy/; /opt/conda/bin/python3 {dst / 'discore.py'} --install --dry'"
+    os.system(launch_cmd)
+
     launch_cmd = f"{kitty_cmd} 'cd /workspace/discore_deploy/; /opt/conda/bin/python3 {dst / 'discore.py'}"
     oargs = original_args
     oargs.remove('--vastai')
@@ -270,6 +279,7 @@ def deploy_vastai():
     launch_cmd += f' --no_venv'
     if not args.vastai_continue:
         launch_cmd += f' --install'
+    launch_cmd += "'"
 
     os.system(launch_cmd)
 
