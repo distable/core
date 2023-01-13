@@ -132,12 +132,13 @@ def deploy_vastai():
                 print_offer(e)
 
             # Ask user to choose a machine, keep asking until valid choice
+            print("")
             try:
                 choice = input("Enter the number of the machine you want to use: ")
                 choice = int(choice)
                 if 1 <= choice <= len(offers):
                     print_offer(e)
-                    print("nice choice!")
+                    print()
                     break
             except:
                 print("Invalid choice. Try again, or type r to refresh the list and see again.")
@@ -169,16 +170,17 @@ def deploy_vastai():
         ins = None
         while ins is None or ins['status'] != 'running':
             all_ins = [i for i in fetch_instances() if i['id'] == id]
-            print(all_ins)
             if len(all_ins) > 0:
                 ins = all_ins[0]
 
-                if ins is not None and ins['status'] == 'running':
+                status = ins['status']
+                if ins is not None and status == 'running':
                     return ins
 
-                if ins is not None and ins['status'] != 'running':
+                if ins is not None and status != 'running':
                     if not printed_loading:
-                        print(f"Waiting for {id} to finish loading...")
+                        print("")
+                        print(f"Waiting for {id} to finish loading (status={status})...")
                         printed_loading = True
 
             time.sleep(3)
@@ -189,16 +191,19 @@ def deploy_vastai():
 
     # 3. Connections
     # ----------------------------------------
-    username = 'root'
+    user = 'root'
     ip = instance['sshaddr']
     port = instance['sshport']
-    print(chalk.green(f"Establishing connections root@{ip}:{port}..."))
 
-    ssh_cmd = f"ssh -p {port} root@{ip}"
+    ssh_cmd = f"ssh -p {port} {user}@{ip}"
     kitty_cmd = f"kitty +kitten {ssh_cmd}"
 
+    print("")
+    print('----------------------------------------')
+    print(chalk.green(f"Establishing connections {user}@{ip}:{port}..."))
     print(ssh_cmd)
     print(kitty_cmd)
+    print('----------------------------------------')
     print("")
 
     ssh = paramiko.SSHClient()
@@ -206,22 +211,30 @@ def deploy_vastai():
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
 
     while True:
-            try:
-                # This can fail when the instance just launched
-                ssh.connect(ip, port=int(port), username='root')
-                break
-            except:
-                print("Failed to connect, retrying...")
-                time.sleep(3)
+        try:
+            # This can fail when the instance just launched
+            ssh.connect(ip, port=int(port), username='root')
+            break
+        except:
+            print("Failed to connect, retrying...")
+            time.sleep(3)
 
     from src_core.deploy.sftpclient import SFTPClient
     sftp = SFTPClient.from_transport(ssh.get_transport())
     sftp.max_size = 10 * 1024 * 1024
     sftp.urls = user_conf.deploy_urls
     sftp.ssh = ssh
+    sftp.enable_urls = not args.vastai_no_download
 
-    # Print ls
-    sshexec(ssh, "ls /workspace/")
+    def sshexec(ssh, cm, cwd=None):
+        cm = cm.replace("'", '"')
+        if cwd is not None:
+            cm = f"cd {cwd}; {cm}"
+        return os.popen(f"{kitty_cmd} '{cm}'").read()
+
+    def file_exists(ssh, path):
+        out = sshexec(ssh, f"stat '{path}'")
+        return 'No such file or directory' not in out
 
     if user_conf.vastai_sshfs:
         print(chalk.green("Mounting with sshfs..."))
@@ -235,11 +248,10 @@ def deploy_vastai():
     src = paths.root
     dst = Path("/workspace/discore_deploy")
 
-    repo_existed = sftp.exists(dst)
+    repo_existed = file_exists(ssh, dst)
     print('repo_existed', repo_existed)
 
     if not args.vastai_continue:
-        print(chalk.green("--vastai_recreate"))
         sshexec(ssh, f"rm -rf {dst}")
 
         # Deployment steps
@@ -250,7 +262,6 @@ def deploy_vastai():
             sshexec(ssh, ' '.join(cmd))
 
         # ----------------------------------------
-        print(chalk.green("VastAI setup commands..."))
         sshexec(ssh, f"apt-get install python3-venv -y")
         sshexec(ssh, f"apt-get install libgl1 -y")
         sshexec(ssh, f"chmod +x {dst / 'discore.py'}")
@@ -266,12 +277,7 @@ def deploy_vastai():
         for file in deploy_copy:
             src_file = src / file
             dst_file = dst / file
-            if src_file.is_dir():
-                sftp.mkdir(dst_file.as_posix(), ignore_existing=True)
-                sftp.put_dir(src_file.as_posix(), dst_file.as_posix())
-            else:
-                print(f"Uploading {src_file.as_posix()} to {dst_file.as_posix()}")
-                sftp.put(src_file.as_posix(), dst_file.as_posix())
+            sftp.put_any(src_file, dst_file)
         sftp.close()
 
     # Open a shell
@@ -290,9 +296,13 @@ def deploy_vastai():
 
     launch_cmd = f"{kitty_cmd} 'cd /workspace/discore_deploy/; /opt/conda/bin/python3 {dst / 'discore.py'}"
     oargs = original_args
-    oargs.remove('--vastai')
+    safe_list_remove(oargs, '--vastai')
+    safe_list_remove(oargs, '--vai')
+    safe_list_remove(oargs, '--vastai_continue')
+    safe_list_remove(oargs, '--vaic')
     launch_cmd += f' {" ".join(oargs)}'
 
+    launch_cmd += f' --remote'
     launch_cmd += f' --no_venv'
     if not args.vastai_continue:
         launch_cmd += f' --install'
@@ -303,14 +313,12 @@ def deploy_vastai():
     # interactive.interactive_shell(channel)
 
 
-def input_bool(string):
-    while True:
-        yes = input(string).lower() in ['yes', 'y', 'true', 't', '1']
-        no = input(string).lower() in ['no', 'n', 'false', 'f', '0']
-        if yes: return True
-        if no: return False
-
-        print("Please respond with 'y' or 'n'")
+def safe_list_remove(l, value):
+    if not l: return
+    try:
+        l.remove(value)
+    except:
+        pass
 
 
 def deploy_local():

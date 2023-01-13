@@ -1,3 +1,4 @@
+import jargs
 from src_core.conf import *
 
 # Core
@@ -45,6 +46,18 @@ sd.precision = 'full'
 sd.no_half = True
 sd.no_half_vae = True
 sd.batch_cond_uncond = False
+
+if jargs.args.remote:
+    sd.medvram = False
+    sd.lowvram = False
+    sd.precision = 'half'
+    sd.no_half = False
+    sd.no_half_vae = False
+    sd.batch_cond_uncond = True
+    print("----------------------------------------")
+    print("WADUP VAST AI NATION")
+    print("----------------------------------------")
+
 
 # Deployment
 # ----------------------------------------

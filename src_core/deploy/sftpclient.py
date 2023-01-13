@@ -1,5 +1,8 @@
+from pathlib import Path
+
 import paramiko
 import os
+
 
 def sshexec(ssh, cmd, with_printing=True):
     if with_printing:
@@ -16,6 +19,7 @@ def sshexec(ssh, cmd, with_printing=True):
 
     # return ret
 
+
 class SFTPClient(paramiko.SFTPClient):
     def __init__(self, *args, **kwargs):
         super(SFTPClient, self).__init__(*args, **kwargs)
@@ -25,6 +29,20 @@ class SFTPClient(paramiko.SFTPClient):
             'vae.vae.pt'  : '',
         }
         self.ssh = None
+        self.enable_urls = True
+        self.enable_print_upload = False
+        self.enable_print_download = True
+
+    def put_any(self, source, target):
+        source = Path(source)
+        target = Path(target)
+
+        if source.is_dir():
+            self.mkdir(target.as_posix(), ignore_existing=True)
+            self.put_dir(source.as_posix(), target.as_posix())
+        else:
+            print(f"Uploading {source.as_posix()} to {target.as_posix()}")
+            self.put(source.as_posix(), target.as_posix())
 
     def put_dir(self, source, target, ignore_exts=[]):
         """
@@ -32,7 +50,8 @@ class SFTPClient(paramiko.SFTPClient):
         target directory needs to exists. All subdirectories in source are
         created under target.
         """
-        print(source, target)
+        import yachalk as chalk
+        print(f"{target}... {chalk.chalk.dim(target)}")
         self.mkdir(target, ignore_existing=True)
         for item in os.listdir(source):
             if '.git' in item:
@@ -41,10 +60,12 @@ class SFTPClient(paramiko.SFTPClient):
             if os.path.isfile(os.path.join(source, item)):
                 # If size is above self.max_size (in bytes)
                 if os.path.getsize(os.path.join(source, item)) > self.max_size:
-                    if item in self.urls:
+                    if self.enable_urls and item in self.urls:
                         url = self.urls[item]
                         if url:
                             sshexec(self.ssh, f"wget {url} -O {os.path.join(target, item)}")
+                            if self.enable_print_download:
+                                self.print_download(item, url, target, url)
                             continue
                         else:
                             print(chalk.red("<!> Invalid URL '{url}' for "), item)
@@ -53,11 +74,18 @@ class SFTPClient(paramiko.SFTPClient):
                     print(chalk.red("<!> File too big, skipping"), item)
                     continue
 
-                print("Uploading %s to %s" % (os.path.join(source, item), target))
+                if self.enable_print_upload:
+                    self.print_upload(item, source, target)
                 self.put(os.path.join(source, item), '%s/%s' % (target, item))
             else:
                 self.mkdir('%s/%s' % (target, item), ignore_existing=True)
                 self.put_dir(os.path.join(source, item), '%s/%s' % (target, item))
+
+    def print_upload(self, item, source, target):
+        print(f"Uploading {os.path.join(source, item)} to {target}")
+
+    def print_download(self, item, source, target, url):
+        print(f"Downloading {item} from {source} to {target}")
 
     def exists(self, path):
         try:
@@ -68,7 +96,9 @@ class SFTPClient(paramiko.SFTPClient):
             return False
 
     def mkdir(self, path, mode=511, ignore_existing=False):
-        ''' Augments mkdir by adding an option to not fail if the folder exists  '''
+        """
+        Augments mkdir by adding an option to not fail if the folder exists
+        """
         try:
             super(SFTPClient, self).mkdir(path, mode)
         except IOError:

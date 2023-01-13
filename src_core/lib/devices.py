@@ -1,4 +1,5 @@
 import contextlib
+from typing import Tuple
 
 import psutil as psutil
 import torch
@@ -16,6 +17,7 @@ def get_available_vram():
         return mem_free_total
     else:
         return psutil.virtual_memory().available
+
 
 def extract_device_id(args, name):
     for x in range(len(args)):
@@ -123,8 +125,26 @@ xformers_available = False
 
 try:
     import xformers.ops
+
     xformers_available = True
 except Exception:
     # print("Cannot import xformers", file=sys.stderr)
     # print(traceback.format_exc(), file=sys.stderr)
     pass
+
+
+def get_vram_nvidia_smi() -> Tuple[int, int]:
+    # Invoke nvidia-smi
+    import subprocess
+    used = subprocess.check_output(["nvidia-smi", "--query-gpu=memory.used", "--format=csv,nounits,noheader"])
+    total = subprocess.check_output(["nvidia-smi", "--query-gpu=memory.total", "--format=csv,nounits,noheader"])
+
+    # e.g.
+    # used=b'1116\n'
+    # total=b'11178\n'
+
+    # Convert to int
+    used = int(used.decode('utf-8').strip())
+    total = int(total.decode('utf-8').strip())
+
+    return used,total
