@@ -16,7 +16,9 @@ deploy_copy = ['requirements.txt',
                'jargs.py',
                paths.userconf_name,
                paths.scripts_name,
-               paths.plug_res_name]
+               paths.plug_res_name,
+               paths.src_core_name,
+               paths.src_plugins_name]
 
 
 # Commands to run in order to setup a deployment
@@ -225,6 +227,8 @@ def deploy_vastai():
     sftp.urls = user_conf.deploy_urls
     sftp.ssh = ssh
     sftp.enable_urls = not args.vastai_no_download
+    sftp.ip = ip
+    sftp.port = port
 
     def sshexec(ssh, cm, cwd=None):
         cm = cm.replace("'", '"')
@@ -269,6 +273,7 @@ def deploy_vastai():
 
     # ----------------------------------------
     if not args.vastai_continue or args.vastai_copy:
+        print("")
         print(chalk.green("Copying user files..."))
         if user_conf.vastai_sshfs and not repo_existed:
             d = Path(user_conf.vastai_sshfs_path).expanduser()

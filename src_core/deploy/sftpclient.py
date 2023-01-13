@@ -32,6 +32,9 @@ class SFTPClient(paramiko.SFTPClient):
         self.enable_urls = True
         self.enable_print_upload = False
         self.enable_print_download = True
+        self.rsync = True
+        self.ip = None
+        self.port = None
 
     def put_any(self, source, target):
         source = Path(source)
@@ -51,7 +54,12 @@ class SFTPClient(paramiko.SFTPClient):
         created under target.
         """
         import yachalk as chalk
-        print(f"{target}... {chalk.chalk.dim(target)}")
+        print(f"{target} ({chalk.chalk.dim(target)})")
+
+        if self.rsync:
+            os.system(f"rsync -avz --exclude '*/' -e 'ssh -p {self.port}' {source} root@{self.ip}:{target}")
+            return
+
         self.mkdir(target, ignore_existing=True)
         for item in os.listdir(source):
             if '.git' in item:

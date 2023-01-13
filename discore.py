@@ -50,7 +50,8 @@ if not args.run:
             os.system(f"{sys.executable} -m pip install -r requirements.txt")
         else:
             os.system(f"{VENV_DIR}/bin/pip install -r requirements.txt")
-        print('Upgrading to latest version')
+        print('----------------------------------------')
+        print("\n\n")
         exit(0)
 
     if args.no_venv:
