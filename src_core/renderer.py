@@ -9,7 +9,7 @@ from src_core.classes import paths
 from src_core.classes.logs import loglaunch_err
 from src_core.classes.paths import get_script_file_path, parse_action_script
 from src_core.classes.printlib import pct, trace
-from src_core.hud import hud, save_hud
+from src_core.hud import clear_hud, hud, save_hud
 
 # TODO support a pygame or moderngl window to render to
 # TODO support ryusig
@@ -19,6 +19,7 @@ class RenderVars:
     ctx: 'PipeData' = None
     gs: 'Session' = None
     prompt: str = ""
+    negprompt: str = ""
     nprompt = None
     w: int = 640
     h: int = 448
@@ -62,6 +63,7 @@ class RenderVars:
         v.d, v.chg, v.cfg, v.seed, v.sampler = 1.1, 0.5, 16.5, 0, 'euler-a'
         v.nguide, v.nsp = 0, 0
         v.smear = 0
+
 
         v.nextseed = random.randint(0, 2 ** 32 - 1)
         v.f = int(f)
@@ -115,8 +117,9 @@ def render_init():
             safe_call(load_script)
             safe_call(script.on_init, v)
 
-    # In case the script set the session e.g. for standalone testing
     core.init(pluginstall=args.install)
+
+    # In case the script set the session e.g. for standalone testing
     core.open(ses)
     core.opensub(args.subdir)
 
@@ -151,6 +154,8 @@ def render_loop(lo=None, hi=None):
     i = 0
     hi = hi if hi is not None else max_duration * fps
     while core.f < hi:
+        start_f = core.f
+
         # Iterate all files recursively in paths.script_dir
         if detect_script_modified():
             print(chalk.bg_magenta("Change detected in scripts, reloading"))
@@ -172,7 +177,11 @@ def render_loop(lo=None, hi=None):
                 core.gs.make_video()
             if args.zip_every and i % args.zip_every == 0:
                 # TODO zip frames
-                core.gs.make_zip()
+                core.gs.make_archive()
+        else:
+            # Restore the frame number
+            core.gs.f = start_f
+            clear_hud()
 
 
 

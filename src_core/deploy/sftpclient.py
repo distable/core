@@ -35,6 +35,7 @@ class SFTPClient(paramiko.SFTPClient):
         self.rsync = True
         self.ip = None
         self.port = None
+        self.print_rsync = False
 
     def put_any(self, source, target, forbid_rsync=False):
         source = Path(source)
@@ -57,8 +58,12 @@ class SFTPClient(paramiko.SFTPClient):
         print(f"{target} ({chalk.chalk.dim(target)})")
 
         if self.rsync and not forbid_rsync:
-            cm = f"rsync -avz -e 'ssh -p {self.port}' {source} root@{self.ip}:{target}"
-            print(cm)
+            flag = ''
+            if self.print_rsync:
+                flag = 'v'
+
+            cm = f"rsync -az{flag} -e 'ssh -p {self.port}' {source} root@{self.ip}:{Path(target).parent}"
+            # print(cm)
             os.system(cm)
             return
 
@@ -68,6 +73,9 @@ class SFTPClient(paramiko.SFTPClient):
                 continue
 
             if os.path.isfile(os.path.join(source, item)):
+                if self.exists(os.path.join(target, item)):
+                    continue
+
                 # If size is above self.max_size (in bytes)
                 if os.path.getsize(os.path.join(source, item)) > self.max_size:
                     if self.enable_urls and item in self.urls:
@@ -86,6 +94,7 @@ class SFTPClient(paramiko.SFTPClient):
 
                 if self.enable_print_upload:
                     self.print_upload(item, source, target)
+
                 self.put(os.path.join(source, item), '%s/%s' % (target, item))
             else:
                 self.mkdir('%s/%s' % (target, item), ignore_existing=True)
@@ -99,9 +108,10 @@ class SFTPClient(paramiko.SFTPClient):
 
     def exists(self, path):
         try:
-            print(f'check if {path} exists', self.stat(path))
-            self.stat(path)
-            return True
+            # print(f'check if {path} exists', self.stat(path))
+            if self.lstat(path) is not None:
+                return True
+            return False
         except:
             return False
 

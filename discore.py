@@ -6,7 +6,8 @@ import shutil
 import sys
 from pathlib import Path
 
-from jargs import argp, args, original_args, spaced_args
+from jargs import argp, args, determine_session, spaced_args
+from src_core.lib.corelib import shlexrun_err
 
 os.chdir(Path(__file__).parent)
 
@@ -47,9 +48,9 @@ if not args.run:
     if args.upgrade:
         # Install requirements with venv pip
         if args.no_venv:
-            os.system(f"{sys.executable} -m pip install -r requirements.txt")
+            shlexrun_err(f"{sys.executable} -m pip install -r requirements.txt")
         else:
-            os.system(f"{VENV_DIR}/bin/pip install -r requirements.txt")
+            shlexrun_err(f"{VENV_DIR}/bin/pip install -r requirements.txt")
         print('----------------------------------------')
         print("\n\n")
         exit(0)
@@ -71,10 +72,6 @@ if not args.run:
 # from src_core.classes.Session import Session
 
 from src_core.classes import paths
-
-
-def determine_session():
-    return args.session or args.action or args.script
 
 
 def on_ctrl_c():
@@ -235,15 +232,6 @@ def plugin_wizard():
     print("Done!")
     input()
     exit(0)
-
-
-def framerange():
-    if args.frames:
-        ranges = args.frames.split('-')
-        for r in ranges:
-            yield r
-    else:
-        yield args.frames
 
 
 main()

@@ -6,14 +6,14 @@ from pathlib import Path
 
 from jargs import args, original_args
 from src_core.classes import paths
-from src_core.lib.corelib import open_in_explorer
+from src_core.lib.corelib import open_in_explorer, shlexrun_err
 
 
 # User files/directories to copy at the start of a deployment
 deploy_rsync = ['requirements.txt',
-               'discore.py',
-               'deploy.py',
-               'jargs.py',
+                'discore.py',
+                'deploy.py',
+                'jargs.py',
                 paths.userconf_name,
                 paths.scripts_name,
                 paths.src_core_name,
@@ -30,6 +30,31 @@ def get_deploy_commands(clonepath):
     ]
 
 
+def deploy_local():
+    import shutil
+    import platform
+
+
+    # A test 'provider' which attempts to do a clean clone of the current installation
+    # 1. Clone the repo to ~/discore_deploy/
+    src = paths.root
+    dst = Path.home() / "discore_deploy"
+
+    shutil.rmtree(dst.as_posix())
+
+    cmds = get_deploy_commands(dst.as_posix())
+    for cmd in cmds:
+        subprocess.run(cmd)
+
+    for file in deploy_rsync:
+        shutil.copyfile(src / file, dst / file)
+
+    # 3. Run ~/discore_deploy/discore.py
+    if platform.system() == "Linux":
+        subprocess.run(['chmod', '+x', dst / 'discore.py'])
+
+    subprocess.run([dst / 'discore.py', '--upgrade'])
+
 def deploy_vastai():
     """
     Deploy onto cloud.
@@ -37,6 +62,7 @@ def deploy_vastai():
     import interactive
     import paramiko
     import user_conf
+    import json
     from src_core.deploy.sftpclient import sshexec
 
     # 1. List the available machines with vastai api
@@ -77,6 +103,19 @@ def deploy_vastai():
 
         return offers
 
+    def fetch_balance():
+        out = subprocess.check_output(['python3', vastpath.as_posix(), 'show', 'invoices']).decode('utf-8')
+        # Example output (only the last line)
+        # Current:  {'charges': 0, 'service_fee': 0, 'total': 0, 'credit': 6.176303554744997}
+
+        lines = out.splitlines()
+        s = lines[-1]
+        s = s.replace('Current:  ', '')
+        s = s.replace("'", '"')
+        o = json.loads(s)
+        return float(o['credit'])
+
+
     def fetch_instances():
         out = subprocess.check_output(['python3', vastpath.as_posix(), 'show', 'instances']).decode('utf-8')
         # Example output:
@@ -94,7 +133,7 @@ def deploy_vastai():
 
     from yachalk import chalk
 
-    def print_offer(e):
+    def print_offer(e, i):
         print(chalk.green(f'{i + 1} - {e["model"]} - {e["num"]} - {e["dlp"]} - {e["netdown"]} Mbps - {e["price"]} $/hr - {e["dlpprice"]} DLP/HR'))
 
     def print_instance(e):
@@ -132,7 +171,7 @@ def deploy_vastai():
 
             # Print the list of machines
             for i, e in enumerate(offers):
-                print_offer(e)
+                print_offer(e, i)
 
             # Ask user to choose a machine, keep asking until valid choice
             print("")
@@ -140,7 +179,7 @@ def deploy_vastai():
                 choice = input("Enter the number of the machine you want to use: ")
                 choice = int(choice)
                 if 1 <= choice <= len(offers):
-                    print_offer(e)
+                    print_offer(offers[choice - 1], choice-1)
                     print()
                     break
             except:
@@ -218,8 +257,8 @@ def deploy_vastai():
             # This can fail when the instance just launched
             ssh.connect(ip, port=int(port), username='root')
             break
-        except:
-            print("Failed to connect, retrying...")
+        except e:
+            print(f"Failed to connect ({e}), retrying...")
             time.sleep(3)
 
     from src_core.deploy.sftpclient import SFTPClient
@@ -231,14 +270,15 @@ def deploy_vastai():
     sftp.ip = ip
     sftp.port = port
 
-    def sshexec(ssh, cm, cwd=None):
+    def sshexec(ssh, cm, cwd=None, require_output=False):
         cm = cm.replace("'", '"')
         if cwd is not None:
             cm = f"cd {cwd}; {cm}"
         return os.popen(f"{kitty_cmd} '{cm}'").read()
 
     def file_exists(ssh, path):
-        out = sshexec(ssh, f"stat '{path}'")
+        out = sshexec(ssh, f"stat '{path}'", require_output=True)
+        print(out)
         return 'No such file or directory' not in out
 
     if user_conf.vastai_sshfs:
@@ -254,9 +294,8 @@ def deploy_vastai():
     dst = Path("/workspace/discore_deploy")
 
     repo_existed = file_exists(ssh, dst)
-    print('repo_existed', repo_existed)
 
-    if not args.vastai_continue:
+    if not args.vastai_continue or not repo_existed:
         sshexec(ssh, f"rm -rf {dst}")
 
         # Deployment steps
@@ -269,11 +308,12 @@ def deploy_vastai():
         # ----------------------------------------
         sshexec(ssh, f"apt-get install python3-venv -y")
         sshexec(ssh, f"apt-get install libgl1 -y")
+        sshexec(ssh, f"apt-get install zip -y")
         sshexec(ssh, f"chmod +x {dst / 'discore.py'}")
         # sshexec(ssh, f"rm -rf {dst / 'venv'}")
 
     # ----------------------------------------
-    if not args.vastai_continue or args.vastai_copy:
+    if not args.vastai_continue or args.vastai_copy or not repo_existed:
         print("")
         print(chalk.green("Copying user files..."))
         if user_conf.vastai_sshfs and not repo_existed:
@@ -306,21 +346,88 @@ def deploy_vastai():
     launch_cmd = f"{kitty_cmd} 'cd /workspace/discore_deploy/; /opt/conda/bin/python3 {dst / 'discore.py'} --install --dry'"
     os.system(launch_cmd)
 
-    launch_cmd = f"{kitty_cmd} 'cd /workspace/discore_deploy/; /opt/conda/bin/python3 {dst / 'discore.py'}"
-    oargs = original_args
-    safe_list_remove(oargs, '--vastai')
-    safe_list_remove(oargs, '--vai')
-    safe_list_remove(oargs, '--vastai_continue')
-    safe_list_remove(oargs, '--vaic')
-    launch_cmd += f' {" ".join(oargs)}'
+    continue_work = True
+    import threading
+    def vastai_job():
+        launch_cmd = f"{kitty_cmd} 'cd /workspace/discore_deploy/; /opt/conda/bin/python3 {dst / 'discore.py'}"
 
-    launch_cmd += f' --remote'
-    launch_cmd += f' --no_venv'
-    if not args.vastai_continue:
-        launch_cmd += f' --install'
-    launch_cmd += "'"
+        oargs = original_args
+        safe_list_remove(oargs, '--vastai')
+        safe_list_remove(oargs, '--vai')
+        safe_list_remove(oargs, '--vastai_continue')
+        safe_list_remove(oargs, '--vaic')
+        launch_cmd += f' {" ".join(oargs)}'
 
-    os.system(launch_cmd)
+        launch_cmd += f' --remote'
+        launch_cmd += f' --no_venv'
+        if not repo_existed or not args.vastai_continue:
+            launch_cmd += f' --install'
+
+        launch_cmd += "'"
+        os.system(launch_cmd)
+
+    def rsync_job():
+        """
+        Rsync the session every 5 second
+        """
+        while continue_work:
+            time.sleep(5)
+            import jargs
+            n = jargs.determine_session()
+            src2 = dst / paths.sessions_name / n
+            dst2 = src / paths.sessions_name
+            os.system(f"rsync -az -e 'ssh -p {port}' root@{ip}:{src2} {dst2}")
+
+    def balance_job():
+        """
+        Notify the user how much credit is left, every 0.25$
+        """
+        from desktop_notifier import DesktopNotifier
+
+        threshold = 0.25
+
+        notifier = DesktopNotifier()
+        last_balance = None
+        while continue_work:
+            balance = fetch_balance()
+            if last_balance is None or balance - last_balance > threshold:
+                last_balance = balance
+                notifier.send_sync(title='Vast.ai balance', message=f'{balance:.02f}$')
+
+            time.sleep(5)
+
+    def detect_changes_job():
+        """
+        Detect changes to the code (in src/scripts) and copy them up to the server (to dst/scripts)
+        """
+        from src_core.deploy.watch import Watcher
+
+        def execute():
+            src2 = src / paths.scripts_name
+            dst2 = dst
+            os.system(f"rsync -avz -e 'ssh -p {port}' {src2} root@{ip}:{dst2}")
+
+        watch = Watcher([paths.scripts], [execute])
+        while continue_work:
+            watch.monitor_once()
+            time.sleep(1)
+
+    t1 = threading.Thread(target=vastai_job)
+    t2 = threading.Thread(target=rsync_job)
+    t3 = threading.Thread(target=balance_job)
+    t4 = threading.Thread(target=detect_changes_job)
+
+    t1.start()
+    t2.start()
+    t3.start()
+    t4.start()
+    t1.join()
+    continue_work = False
+    t2.join()
+    t3.join()
+    t4.join()
+
+    print(f"Remaining balance: {fetch_balance():.02f}$")
 
     # interactive.interactive_shell(channel)
 
@@ -331,29 +438,3 @@ def safe_list_remove(l, value):
         l.remove(value)
     except:
         pass
-
-
-def deploy_local():
-    import shutil
-    import platform
-
-
-    # A test 'provider' which attempts to do a clean clone of the current installation
-    # 1. Clone the repo to ~/discore_deploy/
-    src = paths.root
-    dst = Path.home() / "discore_deploy"
-
-    shutil.rmtree(dst.as_posix())
-
-    cmds = get_deploy_commands(dst.as_posix())
-    for cmd in cmds:
-        subprocess.run(cmd)
-
-    for file in deploy_rsync:
-        shutil.copyfile(src / file, dst / file)
-
-    # 3. Run ~/discore_deploy/discore.py
-    if platform.system() == "Linux":
-        subprocess.run(['chmod', '+x', dst / 'discore.py'])
-
-    subprocess.run([dst / 'discore.py', '--upgrade'])

@@ -49,3 +49,16 @@ spaced_args = ' '.join([f'"{arg}"' for arg in original_args])
 sys.argv = [sys.argv[0]]
 
 is_vastai = args.vastai or args.vastai_continue
+
+
+def determine_session():
+    return args.session or args.action or args.script
+
+
+def framerange():
+    if args.frames:
+        ranges = args.frames.split('-')
+        for r in ranges:
+            yield r
+    else:
+        yield args.frames

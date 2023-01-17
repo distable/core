@@ -5,7 +5,7 @@ from src_core.classes import paths
 from src_core.classes.convert import save_png
 
 hud_rows = []
-
+work_rows = []
 
 def hud(*args, tcolor=(255, 255, 255), **kwargs):
     # Turn args and kwargs into a string like 'a1 a2 x=1 y=2'
@@ -28,9 +28,11 @@ def hud(*args, tcolor=(255, 255, 255), **kwargs):
 
     hud_rows.append((s, tcolor))
 
-
-work_rows = []
-
+def clear_hud():
+    """
+    Clear the HUD
+    """
+    hud_rows.clear()
 
 def save_hud():
     """

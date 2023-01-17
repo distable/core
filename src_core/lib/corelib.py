@@ -17,3 +17,14 @@ def open_in_explorer(path):
         raise Exception(f"open_in_explorer: Unsupported OS '{os.name}' ")
 
 
+def shlexrun(cmd, **kwargs):
+    import shlex
+    import subprocess
+    print(cmd)
+    # return subprocess.run(shlex.split(cmd), **kwargs)
+    return os.system(cmd)
+
+
+def shlexrun_err(cm):
+    proc = shlexrun(cm, stderr=subprocess.STDOUT, stdout=subprocess.PIPE, shell=True)
+    # return proc.stdout.decode('utf-8')
