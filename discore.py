@@ -1,6 +1,7 @@
 #!/usr/bin/python3
 
 import importlib
+import logging
 import os
 import shutil
 import sys
@@ -8,6 +9,9 @@ from pathlib import Path
 
 from jargs import argp, args, determine_session, spaced_args
 from src_core.lib.corelib import shlexrun_err
+
+logging.captureWarnings(True)
+logging.getLogger("py.warnings").setLevel(logging.ERROR)
 
 os.chdir(Path(__file__).parent)
 
@@ -115,7 +119,6 @@ def main():
                 exit(1)
 
             # Load the action script module
-            print(paths.get_script_module_path(a))
             amod = importlib.import_module(paths.get_script_module_path(a), package=a)
             if amod is None:
                 from src_core.classes.logs import loglaunch_err

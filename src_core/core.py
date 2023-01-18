@@ -132,6 +132,7 @@ def init(step=2, restore: bool | str | float = None, pluginstall=True):
         if user_conf.print_extended_init:
             print()
         logcore("READY")
+        print("")
 
 
 def install_core():

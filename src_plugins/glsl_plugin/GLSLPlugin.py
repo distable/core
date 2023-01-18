@@ -1,10 +1,10 @@
-# import math
-# import os
-# import time
-# from src_core.lib.corelib import to_dict
-# from src_core.classes.JobArgs import JobArgs
-# from src_core.classes.Plugin import Plugin
-# from src_core.plugins import plugjob
+import math
+import os
+import time
+from src_core.lib.corelib import to_dict
+from src_core.classes.JobArgs import JobArgs
+from src_core.classes.Plugin import Plugin
+from src_core.plugins import plugjob
 #
 # os.environ.setdefault("DEMOSYS_SETTINGS_MODULE", "src_plugins.glsl_plugin.demosys_settings")
 # from demosys.conf import default, settings
@@ -161,26 +161,27 @@
 #         self.vao.render(self.program)
 #
 #
-# class glsl_job(JobArgs):
-#     def __init__(self, name, props, img2, **kwargs):
-#         JobArgs.__init__(self, **kwargs)
-#         self.name = name
-#         self.props = props
-#         self.img2 = img2
-#
-#
-# class GLSLPlugin(Plugin):
-#     def title(self):
-#         return "glsl"
-#
-#     def describe(self):
-#         return ""
-#
-#     def load(self):
-#         # self.canvas = Canvas()
-#         pass
-#
-#     # def render_glsl(self, name, props, image, image2=None):
-#     @plugjob
-#     def glsl(self, j: glsl_job):
-#         pass
+
+class glsl_job(JobArgs):
+    def __init__(self, name, props, img2, **kwargs):
+        JobArgs.__init__(self, **kwargs)
+        self.name = name
+        self.props = props
+        self.img2 = img2
+
+
+class GLSLPlugin(Plugin):
+    def title(self):
+        return "glsl"
+
+    def describe(self):
+        return ""
+
+    def load(self):
+        # self.canvas = Canvas()
+        pass
+
+    # def render_glsl(self, name, props, image, image2=None):
+    @plugjob
+    def glsl(self, j: glsl_job):
+        pass

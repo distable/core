@@ -5,11 +5,11 @@ from src_core.conf import *
 # ----------------------------------------
 
 precision = "full"
-print_timing = True
-print_trace = True
-print_gputrace = True
-print_extended_init = True
-print_more2 = True
+print_timing = False
+print_trace = False
+print_gputrace = False
+print_extended_init = False
+print_more2 = False
 share = False
 
 # Plugins
@@ -24,6 +24,7 @@ sd = plugdef('distable/sd1111_plugin')
 wc = plugload('wildcard')
 mgk = plugload('magick')
 m2d = plugload('math2d')
+m3d = plugload('midas3d')
 # m3d = plugload('math3d')
 flo = plugload('opticalflow')
 edgedet = plugload('edgedet')

@@ -171,9 +171,8 @@ def instantiate_plugin_at(path: Path, install=True):
         installing.skip_installations = not install
         installing.default_basedir = paths.plug_repos / pid
         try:
-            start = time.time()
-            importlib.import_module(f'src_plugins.{path.stem}.__install__')
-            print(f'Took {time.time() - start:.2f}s to load {pid}\'s __install__')
+            with trace(f'src_plugins.{path.stem}.__install__'):
+                importlib.import_module(f'src_plugins.{path.stem}.__install__')
         except:
             pass
 
@@ -182,11 +181,10 @@ def instantiate_plugin_at(path: Path, install=True):
         # Unpack user_conf into __conf__ (timed)
         # ----------------------------------------
         try:
-            start = time.time()
-            confmod = importlib.import_module(f'src_plugins.{path.stem}.__conf__')
-            print(f'Took {time.time() - start:.2f}s to load {pid}\'s __conf__')
-            for k, v in user_conf.plugins[pid].opt.items():
-                setattr(confmod, k, v)
+            with trace(f'src_plugins.{path.stem}.__conf__'):
+                confmod = importlib.import_module(f'src_plugins.{path.stem}.__conf__')
+                for k, v in user_conf.plugins[pid].opt.items():
+                    setattr(confmod, k, v)
         except:
             pass
 
@@ -196,7 +194,7 @@ def instantiate_plugin_at(path: Path, install=True):
         if any(['plugin' in Path(f).name.lower() for f in os.listdir(path)]):
             classtype = None
 
-            with trace('Import all plugin files to find plugin'):
+            with trace('find'):
                 for f in path.iterdir():
                     if f.is_file() and f.suffix == '.py':
                         mod = importlib.import_module(f'src_plugins.{path.stem}.{f.stem}')
@@ -209,7 +207,7 @@ def instantiate_plugin_at(path: Path, install=True):
                 return
 
             # Instantiate the plugin using __new__
-            with trace('Plugin instantiation'):
+            with trace('instantiate'):
                 plugin = classtype(dirpath=path)
                 plugins.append(plugin)
                 plugin.init()
@@ -252,8 +250,8 @@ def instantiate_plugins_in(loaddir: Path, log=False, install=True):
 
     if log:
         logplugin(f"Loaded {len(plugins)} plugins:")
-    for plugin in plugins:
-        print_bp(f"{plugin.id} ({plugin._dir})")
+        for plugin in plugins:
+            print_bp(f"{plugin.id} ({plugin._dir})")
 
 
 def get_job(jquery, short=True, resolve=False) -> JobInfo | None:

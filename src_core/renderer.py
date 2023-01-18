@@ -5,11 +5,13 @@ from pathlib import Path
 
 from yachalk import chalk
 
+from jargs import args
 from src_core.classes import paths
 from src_core.classes.logs import loglaunch_err
 from src_core.classes.paths import get_script_file_path, parse_action_script
 from src_core.classes.printlib import pct, trace
 from src_core.hud import clear_hud, hud, save_hud
+
 
 # TODO support a pygame or moderngl window to render to
 # TODO support ryusig
@@ -64,7 +66,6 @@ class RenderVars:
         v.nguide, v.nsp = 0, 0
         v.smear = 0
 
-
         v.nextseed = random.randint(0, 2 ** 32 - 1)
         v.f = int(f)
         v.t = f / v.fps
@@ -83,7 +84,6 @@ class RenderVars:
 
 
 script = None
-args = None
 v = RenderVars()
 
 
@@ -158,9 +158,12 @@ def render_loop(lo=None, hi=None):
 
         # Iterate all files recursively in paths.script_dir
         if detect_script_modified():
-            print(chalk.bg_magenta("Change detected in scripts, reloading"))
+            print(chalk.dim(chalk.magenta("Change detected in scripts, reloading")))
             safe_call(load_script())
 
+        s = f'frame {v.f} | {v.t:.2f}s ----------------------'
+        print(s)
+        hud(s)
         yield core.f
 
         if not last_frame_failed:
@@ -182,9 +185,6 @@ def render_loop(lo=None, hi=None):
             # Restore the frame number
             core.gs.f = start_f
             clear_hud()
-
-
-
 
 
 def detect_script_modified():
@@ -241,5 +241,3 @@ def load_script(name=None):
 # def video_every(duration_s: int):
 #     if core.f % duration_s * fps == 0:
 #         core.gs.make_video(fps, bg=True)
-
-
