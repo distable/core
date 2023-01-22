@@ -146,7 +146,6 @@ def render_init(session=None, script_name='', dev=False):
     return current_session
 
 
-
 def pygame_loop():
     global last_frame_time
     global frame_changed
@@ -162,7 +161,15 @@ def pygame_loop():
     fps = 0
     dt = 1
 
-    font = pygame.font.SysFont('Arial', 20)
+    font = pygame.font.Font((paths.plug_res / 'vt323.ttf').as_posix(), 19)
+
+    def draw_text(s, x, y):
+        # Shadow
+        text = font.render(s, True, (0, 0, 0))
+        screen.blit(text, (x +2, y + 2))
+
+        text = font.render(s, True, (255, 255, 255))
+        screen.blit(text, (x, y))
 
     while True:
         for event in pygame.event.get():
@@ -194,11 +201,7 @@ def pygame_loop():
         fps = 1 / dt
 
         # Draw the fps in the upper left corner
-        text = font.render(f'FPS: {fps:.2f}', True, (0, 0, 0))
-        screen.blit(text, (2, 2))
-        # screen.blit(text, (-2, -2))
-        text = font.render(f'FPS: {fps:.2f}', True, (255, 255, 255))
-        screen.blit(text, (0, 0))
+        draw_text(f'FPS: {fps:.2f}', 0, 0)
 
         pygame.display.flip()
 
