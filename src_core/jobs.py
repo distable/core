@@ -7,6 +7,7 @@
 
 
 import threading
+import time
 from copy import copy
 from datetime import datetime
 
@@ -17,7 +18,7 @@ from src_core.classes.Job import Job
 from src_core.classes.logs import logjob_err
 from src_core.classes.MockServer import MockServer
 
-jobs: list[Job] = []  # All jobs currently managed (queued or processing)
+all: list[Job] = []  # All jobs currently managed (queued or processing)
 queued: list[Job] = []  # jobs currently in the queue
 running: list[Job] = []  # jobs currently processing
 server = MockServer()  # to receive events
@@ -30,7 +31,7 @@ def get(uid):
     if isinstance(uid, Job):
         return uid
 
-    for job in jobs:
+    for job in all:
         if job.uid == uid:
             return job
     raise Exception("Job not found")
@@ -44,7 +45,7 @@ def enqueue(job):
         raise Exception("Job already queued")
 
     job.queued = True
-    jobs.append(job)
+    all.append(job)
     queued.append(job)
 
     server.emit('job_queued', job)
@@ -79,13 +80,12 @@ def run(job):
     from src_core import plugins
 
     job.running = True
-    job.timestamp_run = datetime.now().isoformat()
+    job.timestamp_run = time.time()
     server.emit('job_started', job.uid)
 
     # Run the job for N repeats  ----------------------------------------
     args = copy(job.args)
     args.job = job
-    args.ctx = job.ctx
     args.session = job.session
 
     ret = None
@@ -143,7 +143,7 @@ def abort(job: str | Job):
 def remove(job):
     if job in queued: queued.remove(job)
     if job in running: running.remove(job)
-    if job in jobs: jobs.remove(job)
+    if job in all: all.remove(job)
 
     server.emit('job_removed', job.uid)
 
@@ -152,7 +152,7 @@ def await_run():
     """
     Do nothing until all jobs have finished.
     """
-    while len(jobs) > 0:
+    while len(all) > 0:
         pass
 
 

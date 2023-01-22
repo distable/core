@@ -12,7 +12,7 @@ if __name__ == "__main__":
 
     core.init()
     core.open0(folder_name)
-    while core.gs.ctx.image is not None:
+    while core.gs.image is not None:
         # core.jrun('img2img', prompt="A beautiful painting from upclose.")
         # core.save()
         core.run('kup', prompt="A beautiful painting from upclose.")

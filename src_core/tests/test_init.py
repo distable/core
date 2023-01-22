@@ -8,7 +8,7 @@ if __name__ == "__main__":
 
 
     # Verify plugins have loaded
-    assert plugins.plugins
+    assert plugins.alls
 
     # Verify plugins have loaded
     assert plugins.get_jobs()

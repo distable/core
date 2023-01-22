@@ -7,35 +7,22 @@
 # ----------------------------------------
 
 import os
-import platform
-import shutil
-import subprocess
 import sys
-import time
-from pathlib import Path
 
 from yachalk import chalk
 
+import jargs
 import user_conf
-from src_core import installing, jobs, plugins
+from src_core import installing, plugins
 from src_core.classes import paths, printlib
 from src_core.classes.common import setup_ctrl_c
-from src_core.classes.Job import Job
-from src_core.classes.JobArgs import JobArgs
 from src_core.classes.logs import logcore, logcore_err
-from src_core.classes.MemMon import MemMon
-from src_core.classes.paths import get_max_leadnum
-from src_core.classes.PipeData import PipeData
 from src_core.classes.Session import Session
 from src_core.installing import is_installed, pipargs, print_info, python
-from src_core.lib import devices
-from src_core.classes.printlib import trace
 
-gs: Session | None = None
+printlib.print_timing = user_conf.print_timing
 printlib.print_trace = user_conf.print_trace
 printlib.print_gputrace = user_conf.print_gputrace
-
-memmon: MemMon = None
 
 torch_command = os.environ.get('TORCH_COMMAND', "pip install torch==1.12.1+cu113 torchvision==0.13.1+cu113 --extra-index-url https://download.pytorch.org/whl/cu113")
 clip_package = os.environ.get('CLIP_PACKAGE', "git+https://github.com/openai/CLIP.git@d50d76daa670286dd6cacf3bcd80b5e4823fc8e1")
@@ -74,46 +61,31 @@ def setup_annoying_logging():
         warnings.simplefilter("ignore")
 
 
-def setup_memmon():
-    global memmon
-    mem_mon = MemMon("MemMon", devices.device)
-    mem_mon.start()
+# def setup_memmon():
+#     global memmon
+#     mem_mon = MemMon("MemMon", devices.device)
+#     mem_mon.start()
 
 
-def init(step=2, restore: bool | str | float = None, pluginstall=True):
+def init(step=2, pluginstall=None):
     """
     Initialize the core and all plugins
     Args:
         pluginstall:
         step: The initialization step to stop at.
-        restore:
-            - False: Don't restore
-            - True: Restore the latest session
-            - str: Restore the session with the given name
-            - float: Restore the most recent session if it's age is less than the given seconds, otherwise a new session.
     """
-    global gs
+
+    if pluginstall is None:
+        pluginstall = jargs.args.install
 
     os.chdir(paths.root.as_posix())
-
-    if isinstance(restore, bool) and restore:
-        gs = Session.recent_or_now()
-    elif isinstance(restore, str):
-        gs = open(restore)
-    elif isinstance(restore, float):
-        gs = Session.recent_or_now(restore)
-    else:
-        gs = Session.now()
 
     if step >= 0:
         setup_annoying_logging()
         setup_ctrl_c()
-        # setup_memmon()
 
         if user_conf.print_extended_init:
             print_info()
-            if memmon is not None:
-                print("Memory:", memmon.data['min_free'])
             print()
 
     if step >= 1:
@@ -133,6 +105,8 @@ def init(step=2, restore: bool | str | float = None, pluginstall=True):
             print()
         logcore("READY")
         print("")
+
+    return Session.now(log=False)
 
 
 def install_core():
@@ -234,133 +208,73 @@ def log_jobs():
 #         else:
 #             return jobs.enqueue(ifo)
 
-def run0(jquery: str | JobArgs, session: Session | None = None, fg=True, **kwargs):
-    if session is None:
-        session = gs
-    if session.ctx.image is None:
-        run(jquery, session, fg=fg, **kwargs)
-        add()
+# def abort(uid):
+#     if proxied:
+#         proxy.emit("abort", uid)
 
 
-def run(jquery: str | JobArgs, session: Session | None = None, fg=True, **kwargs):
-    """
-    Run a job in the context of a session.
-    """
-    ifo = plugins.get_job(jquery)
-    if session is None:
-        session = gs
-    if ifo is None:
-        logcore_err(f"Job {jquery} not found!")
-        return None
-
-    # Save outputs
-    def on_done(ret):
-        dat = PipeData.automatic(ret)
-        session.ctx.apply(dat)
+# def open(session_name, i=None)->Session:
+#     global gs
+#     if isinstance(session_name, Session):
+#         gs = session_name
+#     elif session_name is not None:
+#         gs = Session(session_name)
+#
+#     return gs
 
 
-    # Apply memorized session kwargs
-    j = plugins.new_job(jquery, **{**session.get_kwargs(ifo), **kwargs})
-    j.session = session
-    j.ctx = session.ctx
-    j.on_done = on_done
-
-    # Store the prompt into ctx data
-    if j.args.prompt: session.ctx.prompt = j.args.prompt
-    if j.args.w: session.ctx.w = j.args.w
-    if j.args.h: session.ctx.h = j.args.h
-
-    session.add_kwargs(ifo, plugins.get_args(jquery, kwargs, True))
-    session.add_job(j)
-
-    # run
-    # ----------------------------------------
-    if proxied:
-        proxy.emit("start_job", plugins.new_args())
-    else:
-        if fg:
-            # logcore(f"{chalk.blue(j.jid)}(...)")
-            ret = jobs.run(j)
-
-            jargs = j.args
-            jargs_str = {k: v for k, v in jargs.__dict__.items() if isinstance(v, (int, float, str))}
-            jargs_str = ' '.join([f'{chalk.green(k)}={chalk.white(printlib.str(v))}' for k, v in jargs_str.items()])
-
-            logcore(f"{chalk.blue(j.jid)}({jargs_str}) -> {chalk.grey(printlib.str(ret))}")
-            return ret
-        else:
-            return jobs.enqueue(j)
+# def opensub(name, i=None)->Session:
+#     return open(gs.subsession(name), i)
+#
+#
+# def open0(session_name):
+#     return open(session_name, 1)
+#
+#
+# def seek(i=None):
+#     gs.seek(i)
+#
+#
+# def seek_next(i=1, log=True):
+#     gs.seek_next(i, log=log)
+#
+#
+# def seek_new(log=True):
+#     gs.seek_new(log=log)
+#
+#
+# def seek_min():
+#     gs.seek_min()
+#
+#
+# def seek_max():
+#     gs.seek_max()
 
 
-def abort(uid):
-    if proxied:
-        proxy.emit("abort", uid)
+# def write():
+#     """
+#     Save the current global session context data over the current path.
+#     """
+#     gs.save()
+#
+#
+# def save():
+#     """
+#     Save the current global session context data by saving over the current context data.
+#     """
+#     gs.save()
 
 
-def open(session_name, i=None):
-    global gs
-    if isinstance(session_name, Session):
-        gs = session_name
-    elif session_name is not None:
-        gs = Session(session_name)
-
-    return gs
-
-
-def opensub(name, i=None):
-    return open(gs.subsession(name), i)
-
-
-def open0(session_name):
-    return open(session_name, 1)
-
-
-def seek(i=None):
-    gs.seek(i)
-
-
-def seek_next(i=1):
-    gs.seek_next(i)
-
-
-def seek_min():
-    gs.seek_min()
-
-
-def seek_max():
-    gs.seek_max()
-
-
-def write():
-    """
-    Save the current global session context data over the current path.
-    """
-    gs.save()
-
-
-def add():
-    """
-    Save the current global session context data by appending.
-    """
-    gs.save_add()
-
-
-def save():
-    """
-    Save the current global session context data by saving over the current context data.
-    """
-    gs.save()
-
-def print_frame_header():
-    from src_core import core
-    print("")
-    print(f"Frame {core.f} ----------------------------------------")
-
-
-def __getattr__(name):
-    if name == 'f':
-        return gs.f
-    elif name == 'image':
-        return gs.image
-
-    raise AttributeError(f"module '{__name__}' has no attribute '{name}'")
+# def print_frame_header():
+#     from src_core import core
+#     print("")
+#     print(f"Frame {core.f} ----------------------------------------")
+#
+#
+# def __getattr__(name):
+#     if name == 'f':
+#         return gs.f
+#     elif name == 'image':
+#         return gs.image
+#
+#     raise AttributeError(f"module '{__name__}' has no attribute '{name}'")

@@ -1,6 +1,8 @@
 import jargs
 from src_core.conf import *
 
+share = False
+
 # Core
 # ----------------------------------------
 
@@ -10,7 +12,6 @@ print_trace = False
 print_gputrace = False
 print_extended_init = False
 print_more2 = False
-share = False
 
 # Plugins
 # ----------------------------------------
@@ -24,8 +25,7 @@ sd = plugdef('distable/sd1111_plugin')
 wc = plugload('wildcard')
 mgk = plugload('magick')
 m2d = plugload('math2d')
-m3d = plugload('midas3d')
-# m3d = plugload('math3d')
+m3d = plugdef('midas3d')
 flo = plugload('opticalflow')
 edgedet = plugload('edgedet')
 noise = plugload('spnoise')
@@ -37,6 +37,12 @@ sd.bit8 = False
 aliasdef(dream='sd1111.txt2img',
          imagine='sd1111.txt2img')
 
+forbidden_dev_jobs = [
+    'txt2img',
+    'img2img',
+    'sd1111.txt2img',
+    'sd1111.img2img',
+]
 
 # sd.res_ckpt = 'miniSD.ckpt'
 # sd.res_ckpt = 'sd-v2-0-depth.ckpt'
@@ -47,6 +53,17 @@ sd.precision = 'full'
 sd.no_half = True
 sd.no_half_vae = True
 sd.batch_cond_uncond = False
+
+# Deployment
+# ----------------------------------------
+vastai_default_search = "gpu_name=RTX_3090"
+vastai_sshfs = True # Mount via sshfs
+vastai_sshfs_path = "~/discore/mount/"
+
+deploy_urls = {
+    'sd-v1-5.ckpt' : 'https://huggingface.co/runwayml/stable-diffusion-v1-5/resolve/main/v1-5-pruned-emaonly.ckpt',
+    'vae.vae.pt' : 'https://huggingface.co/stabilityai/sd-vae-ft-mse-original/resolve/main/vae-ft-mse-840000-ema-pruned.ckpt',
+}
 
 if jargs.args.remote:
     print("----------------------------------------")
@@ -60,17 +77,6 @@ if jargs.args.remote:
     sd.batch_cond_uncond = True
     jargs.args.zip_every = 120
 
-
-# Deployment
-# ----------------------------------------
-vastai_default_search = "gpu_name=RTX_3090"
-vastai_sshfs = True # Mount via sshfs
-vastai_sshfs_path = "~/discore/mount/"
-
-deploy_urls = {
-    'sd-v1-5.ckpt' : 'https://huggingface.co/runwayml/stable-diffusion-v1-5/resolve/main/v1-5-pruned-emaonly.ckpt',
-    'vae.vae.pt' : 'https://huggingface.co/stabilityai/sd-vae-ft-mse-original/resolve/main/vae-ft-mse-840000-ema-pruned.ckpt',
-}
 # deploy_urls = {}
 
 # # Plugin config

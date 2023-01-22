@@ -21,10 +21,19 @@ def shlexrun(cmd, **kwargs):
     import shlex
     import subprocess
     print(cmd)
-    # return subprocess.run(shlex.split(cmd), **kwargs)
-    return os.system(cmd)
+    return subprocess.run(shlex.split(cmd), **kwargs)
 
 
 def shlexrun_err(cm):
     proc = shlexrun(cm, stderr=subprocess.STDOUT, stdout=subprocess.PIPE, shell=True)
-    # return proc.stdout.decode('utf-8')
+    return proc.stdout.decode('utf-8')
+
+def shlexproc(cmd, **kwargs):
+    import shlex
+    import subprocess
+    print(cmd)
+    return subprocess.Popen(shlex.split(cmd), **kwargs)
+
+def shlexproc_err(cm):
+    proc = shlexproc(cm, stderr=subprocess.STDOUT, stdout=subprocess.PIPE, shell=True)
+    return proc.stdout.decode('utf-8')

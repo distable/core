@@ -45,10 +45,10 @@ class EdgePlugin(Plugin):
 
     @plugjob
     def edgedet(self, j: edgedet_job):
-        img,comp = edgedet(j.ctx.image)
+        img,comp = edgedet(j.session.image)
         return img
 
     @plugjob
     def edgecomp(self, j: edgedet_job):
-        img,comp = edgedet(j.ctx.image)
+        img,comp = edgedet(j.session.image)
         return comp

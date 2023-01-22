@@ -65,7 +65,7 @@ class PalettePlugin(Plugin):
         else:
             printerr(f"Palette must be a PIL Image or a path to an image file, got {type(j.pal)}")
 
-        img = pil2cv(j.ctx.image)
+        img = pil2cv(j.session.image)
         pal = pil2cv(palpil)
         droplerp_np(img, pal, 4, j.speed)
         retcv = maintain_colors(img, pal, j.mode)

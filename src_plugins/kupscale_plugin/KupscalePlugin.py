@@ -188,7 +188,7 @@ class KupscalePlugin(Plugin):
             raise ValueError(f"Unknown decoder: {j.decoder}")
 
         # image = Image.open(fetch(input_file)).convert('RGB')
-        image = j.ctx.image.convert('RGB')
+        image = j.session.image.convert('RGB')
         image = TF.to_tensor(image).to(devices.device) * 2 - 1
         low_res_latent = vae.encode(image.unsqueeze(0)).sample() * SD_Q
         low_res_decoded = vae.decode(low_res_latent/SD_Q)

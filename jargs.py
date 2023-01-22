@@ -10,6 +10,11 @@ argp.add_argument("subdir", nargs="?", default='', help="Subdir in the session")
 
 argp.add_argument('--run', action='store_true', help='Perform the run in a subprocess')
 argp.add_argument('--remote', action='store_true', help='Indicates that we are running remotely.')
+argp.add_argument('--dev', action='store_true', help='Use a development environment to test the setup.')
+argp.add_argument('--profile', action='store_true', help='Profile the entire script frame by frame.')
+argp.add_argument('--profile_jobs', action='store_true', help='Profile each job one by one.')
+argp.add_argument('--profile_run_session', action='store_true', help='Profile session.run')
+argp.add_argument('--profile_run_job', action='store_true', help='Profile jobs.run')
 argp.add_argument("--recreate_venv", action="store_true")
 argp.add_argument("--no_venv", action="store_true")
 argp.add_argument('--upgrade', action='store_true', help='Upgrade to latest version')
@@ -26,8 +31,8 @@ argp.add_argument('--preview_command', type=str, default='', help='The default f
 # Script Arguments
 argp.add_argument('--fps', type=int, default=30, help='FPS')
 argp.add_argument('--frames', type=str, default=None, help='The frames to render in first:last format')
-argp.add_argument('--w', type=int, default=None, help='The target width.')
-argp.add_argument('--h', type=int, default=None, help='The target height.')
+argp.add_argument('--w', type=str, default=None, help='The target width.')
+argp.add_argument('--h', type=str, default=None, help='The target height.')
 argp.add_argument('--music', type=str, default=None, help='Music file to play in video export')
 argp.add_argument('--music_start', type=float, default=0, help='Music start time in seconds')
 argp.add_argument('--mpv', action='store_true', help='Open the resulting video in MPV.')
@@ -41,9 +46,12 @@ argp.add_argument('--vastai_copy', '--vaicp', action='store_true', help='Copy fi
 argp.add_argument('--vastai_search', '--vais', type=str, default=None, help='Search for a VastAI server')
 argp.add_argument('--vastai_no_download', '--vaindl', action='store_true', help='Prevent downloading during copy step.')
 
-args = argp.parse_args()
-original_args = sys.argv[1:]
-spaced_args = ' '.join([f'"{arg}"' for arg in original_args])
+argv = sys.argv[1:]
+args = argp.parse_known_args()
+argvr = args[1]
+args = args[0]
+
+spaced_args = ' '.join([f'"{arg}"' for arg in argv])
 
 # Eat up arguments
 sys.argv = [sys.argv[0]]
@@ -51,8 +59,9 @@ sys.argv = [sys.argv[0]]
 is_vastai = args.vastai or args.vastai_continue
 
 
-def determine_session():
-    return args.session or args.action or args.script
+def get_discore_session(load=True):
+    from src_core.classes.Session import Session
+    return Session(args.session or args.action or args.script, load=load).subsession(args.subdir)
 
 
 def framerange():

@@ -109,7 +109,7 @@ class MagickPlugin(Plugin):
 
     @plugjob
     def dmagick(self, args: hsvc_job):
-        pil = args.ctx.image
+        pil = args.image
         if pil is None:
             return None
 
@@ -128,7 +128,7 @@ class MagickPlugin(Plugin):
         Keep the hue, brightness or saturation around a certain value.
         Input targets are expected to be normalized 0-1
         """
-        img = j.ctx.image
+        img = j.session.image
         if img is None:
             return None
 
@@ -157,12 +157,12 @@ class MagickPlugin(Plugin):
 
     @plugjob
     def ccadd(self, j: hsvc_add_job):
-        if j.ctx.image is None:
+        if j.session.image is None:
             return None
 
         # Add hue, saturation and value (all normalized in 0 to 1)
         # Use ImageEnhance for image manipulation
-        img = j.ctx.image
+        img = j.session.image
         # img = ImageEnhance.Color(img).enhance(j.sat)
         # img = ImageEnhance.Brightness(img).enhance(j.val)
         # img = ImageEnhance.Contrast(img).enhance(j.contrast)
@@ -182,25 +182,25 @@ class MagickPlugin(Plugin):
 
     @plugjob
     def denoise(self, j: denoise_job):
-        if j.ctx.image is None:
+        if j.session.image is None:
             return None
 
-        return self.magick(j.ctx.image, f'-enhance -enhance -enhance -enhance -enhance -enhance -enhance -enhance -enhance -enhance')
+        return self.magick(j.session.image, f'-enhance -enhance -enhance -enhance -enhance -enhance -enhance -enhance -enhance -enhance')
 
 
     @plugjob
     def contrast(self, j: contrast_job):
-        if j.ctx.image is None:
+        if j.session.image is None:
             return None
 
-        return ImageEnhance.Contrast(j.ctx.image).enhance(j.contrast)
+        return ImageEnhance.Contrast(j.session.image).enhance(j.contrast)
 
     # @plugjob
     # def distort(self, j: distort_job):
-    #     if j.ctx.image is None:
+    #     if j.session.image is None:
     #         return None
     #
-    #     with wand.image.Image.from_array(np.array(j.ctx.image)) as img:
+    #     with wand.image.Image.from_array(np.array(j.session.image)) as img:
     #         # Grid distortion
     #         return wnd_to_pil(img)
 

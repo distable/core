@@ -445,8 +445,8 @@ class OpticalflowPlugin(Plugin):
                         out_flow21 = dir_flow21 / in_frame1.stem
                         out_flow12 = dir_flow12 / in_frame1.stem
 
-                        frame1 = load_img(in_frame1, (j.ctx.width, j.ctx.height))
-                        frame2 = load_img(in_frame2, (j.ctx.width, j.ctx.height))
+                        frame1 = load_img(in_frame1, (j.session.width, j.session.height))
+                        frame2 = load_img(in_frame2, (j.session.width, j.session.height))
 
                         flow21 = get_flow(frame2, frame1, raft_model, half=half)
                         flow21pil = PIL.Image.fromarray(flow_to_image(flow21))
@@ -477,7 +477,7 @@ class OpticalflowPlugin(Plugin):
     @plugjob(key='devdef_flow')
     def flow_setup(self, j: flowsetup_job):
         frame_num = j.session.f
-        img = j.ctx.image
+        img = j.session.image
 
         if frame_num == 0 and use_background_mask:
             img = apply_mask(j.session, img, frame_num, background, background_source, invert_mask)
@@ -486,7 +486,7 @@ class OpticalflowPlugin(Plugin):
 
     @plugjob(key='devdef_flow')
     def flow(self, j: flow_job):
-        animpil = j.ctx.image
+        animpil = j.session.image
         flowpath = j.session.res_frame(j.name, 'flow21', ext='npy')
 
         # if use_background_mask and not apply_mask_after_warp:
@@ -514,7 +514,7 @@ class OpticalflowPlugin(Plugin):
 
     @plugjob(key='devdef_flow')
     def ccblend(self, j: ccblend_job):
-        img1 = j.ctx.image
+        img1 = j.session.image
         img2 = j.session.res_framepil(j.img, ctxsize=True)
         ccpath = get_consistency_path(j.session, j.flow, reverse=j.reverse)
 
@@ -550,8 +550,8 @@ class OpticalflowPlugin(Plugin):
 
 @plugjob(key='devdef_flow')
 def consistency(self, j: consistency_job):
-    if not j.ctx.image: return
-    image = j.ctx.image
+    if not j.session.image: return
+    image = j.session.image
     f = j.session.f
     ccpath = j.session.res_frame(j.name, f, 'flowcc21')
 

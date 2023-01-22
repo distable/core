@@ -23,6 +23,7 @@ from pathlib import Path
 from yachalk.ansi import Color, wrap_ansi_16
 
 import user_conf
+from jargs import args
 from src_core import installing
 from src_core.classes import paths
 from src_core.classes.Job import Job
@@ -32,7 +33,7 @@ from src_core.classes.logs import logplugin, logplugin_err
 from src_core.classes.paths import short_pid, split_jid
 from src_core.classes.Plugin import Plugin
 from src_core.classes.PlugjobDeco import PlugjobDeco
-from src_core.classes.printlib import print_bp, print
+from src_core.classes.printlib import cpuprofile, print_bp, print
 from src_core.classes.prompt_job import prompt_job
 from src_core.classes.printlib import trace
 
@@ -40,7 +41,10 @@ from src_core.classes.printlib import trace
 # ----------------------------------------
 
 plugin_dirs = []  # Plugin infos
-plugins = []  # Loaded modules
+alls = []  # Loaded plugins
+all_jobs = []  # Loaded plugin jobs
+all_jobs_jid = {}  # Loaded plugin jobs by jid (both full and short)
+all_jobs_type = {}  # Loaded plugin jobs by arg type
 num_loading = 0
 loadings = []
 
@@ -94,7 +98,7 @@ def get_plug(query, search_jobs=False):
         return query
 
     if isinstance(query, JobArgs):
-        for plugin in plugins:
+        for plugin in alls:
             for jname, jfunc in plugin.jobs.items():
                 # If any parameter matches the jobargs
                 sig = inspect.signature(jfunc)
@@ -105,45 +109,19 @@ def get_plug(query, search_jobs=False):
 
     if isinstance(query, str):
         # pid search
-        for plugin in plugins:
+        for plugin in alls:
             pid = short_pid(query)
             if plugin.id.startswith(pid):
                 return plugin
 
         # job search
         if search_jobs:
-            for plugin in plugins:
+            for plugin in alls:
                 for jname, jfunc in plugin.jobs.items():
                     if query == jname:
                         return plugin
 
     return None
-
-
-def get_jobs() -> list[JobInfo]:
-    """
-    Return all jobs including aliases.
-    e.g.:
-    sd1111.txt2img
-    sd1111.img2img
-    dream
-    imagine
-    """
-
-    ret = []
-    for plug in plugins:
-        ret.extend(plug.jobs)
-
-    # Add user aliases
-    for alias, uid in user_conf.aliases.items():
-        # Find the original plugjob to point to
-        alias_pname, alias_jname = split_jid(uid)  # sd1111,txt2img OR sd1111_plugin,txt2img
-        for ifo in ret:
-            if ifo.plugid.startswith(alias_pname) and (ifo.jid == alias_jname or ifo.jid.endswith(f'.{alias_jname}')):
-                ret.insert(0, JobInfo(alias, ifo.func, get_plug(ifo.plugid), is_alias=True, key=ifo.key))
-                break
-
-    return ret
 
 
 def instantiate_plugin_at(path: Path, install=True):
@@ -194,7 +172,7 @@ def instantiate_plugin_at(path: Path, install=True):
         if any(['plugin' in Path(f).name.lower() for f in os.listdir(path)]):
             classtype = None
 
-            with trace('find'):
+            with trace(f'src_plugins.{path.stem}.find'):
                 for f in path.iterdir():
                     if f.is_file() and f.suffix == '.py':
                         mod = importlib.import_module(f'src_plugins.{path.stem}.{f.stem}')
@@ -207,10 +185,37 @@ def instantiate_plugin_at(path: Path, install=True):
                 return
 
             # Instantiate the plugin using __new__
-            with trace('instantiate'):
+            with trace(f'src_plugins.{path.stem}.instantiate'):
                 plugin = classtype(dirpath=path)
-                plugins.append(plugin)
+                alls.append(plugin)
                 plugin.init()
+
+                # Add jobs
+                all_jobs.extend(plugin.jobs)
+
+                # Add user aliases
+                for alias, uid in user_conf.aliases.items():
+                    # Find the original plugjob to point to
+                    alias_pname, alias_jname = split_jid(uid)  # sd1111,txt2img OR sd1111_plugin,txt2img
+                    for ifo in list(plugin.jobs):
+                        if ifo.plugid.startswith(alias_pname) and (ifo.jid == alias_jname or ifo.jid.endswith(f'.{alias_jname}')):
+                            all_jobs.insert(0, JobInfo(alias, ifo.func, get_plug(ifo.plugid), is_alias=True, key=ifo.key))
+                            break
+
+                # Add long jid lookup
+                for ifo in all_jobs:
+                    all_jobs_jid[ifo.jid] = ifo
+
+                # Add short jid lookup
+                for ifo in all_jobs:
+                    plug, job = split_jid(ifo.jid, True)
+                    all_jobs_jid[job] = ifo
+
+                # Add arg type lookup
+                for ifo in all_jobs:
+                    for pm in inspect.signature(ifo.func).parameters.values():
+                        if '_empty' not in str(pm.annotation):
+                            all_jobs_type[pm.annotation] = ifo
 
             # create directories
             plugin.res().mkdir(parents=True, exist_ok=True)
@@ -249,8 +254,8 @@ def instantiate_plugins_in(loaddir: Path, log=False, install=True):
             instantiate_plugin_at(p, install)
 
     if log:
-        logplugin(f"Loaded {len(plugins)} plugins:")
-        for plugin in plugins:
+        logplugin(f"Loaded {len(alls)} plugins:")
+        for plugin in alls:
             print_bp(f"{plugin.id} ({plugin._dir})")
 
 
@@ -271,36 +276,23 @@ def get_job(jquery, short=True, resolve=False) -> JobInfo | None:
         if isinstance(jquery, JobInfo):
             return jquery
         elif issubclass(type(jquery), JobArgs):
-            for ifo in get_jobs():
-                for pm in inspect.signature(ifo.func).parameters.values():
-                    if '_empty' not in str(pm.annotation):
-                        if type(jquery) == pm.annotation:
-                            return ifo
-            for ifo in get_jobs():
-                for pm in inspect.signature(ifo.func).parameters.values():
-                    if '_empty' not in str(pm.annotation):
-                        if issubclass(type(jquery), pm.annotation):
-                            return ifo
-            for ifo in get_jobs():
-                for pm in inspect.signature(ifo.func).parameters.values():
-                    if '_empty' not in str(pm.annotation):
-                        if isinstance(jquery, pm.annotation):
-                            return ifo
+            v = all_jobs_type.get(type(jquery))
+            if v is not None:
+                return v
+
+            # Try all superclasses
+            for c in type(jquery).__mro__:
+                v = all_jobs_type.get(c)
+                if v is not None:
+                    return v
 
         elif isinstance(jquery, str):
-            for ifo in get_jobs():
-                if jquery == ifo.jid:
-                    return ifo
+            return all_jobs_jid.get(jquery, None)
 
-            if ret is None and short:
-                for ifo in get_jobs():
-                    plug, job = split_jid(ifo.jid, True)
-                    if job == jquery:
-                        return ifo
 
     ret = get()
     if ret is not None and ret.is_alias and resolve:
-        for j in get_jobs():
+        for j in all_jobs:
             if not j.is_alias and ret.func == j.func:
                 return j
 
@@ -331,15 +323,21 @@ def get_args(jquery, kwargs, uconf_defaults):
 
     # Flatten kwargs onto the user defaults
     if uconf_defaults:
-        mod = mod2dic(user_conf)
         pid = ifo.plugid
         _, jid = split_jid(ifo.jid)
 
-        opt = mod['plugins'].get(pid, None).opt
-        kwargs = {**opt.get(jid, {}), **kwargs}
+        opt = user_conf.plugins.get(pid, None).opt
 
+        # Userconf defaults by exact jid
+        opts = opt.get(jid, None)
+        if opts:
+            kwargs = {**opts, **kwargs}
+
+        # Userconf defaults by key
         if isinstance(ifo.key, str):
-            kwargs = {**opt.get(ifo.key, {}), **kwargs}
+            opts = opt.get(ifo.key, None)
+            if opts:
+                kwargs = {**opts, **kwargs}
     return kwargs
 
 
@@ -393,7 +391,8 @@ def run(jquery: JobArgs | str | None = None, require_loaded=False, ifo=None, req
     # jargs_str = ' '.join([f'{chalk.white(k)}={chalk.grey(v)}' for k, v in jargs_str.items()])
 
     # logplugin("start", chalk.blue(ifo.jid), jargs_str)
-    ret = ifo.func(plug, jargs)
+    with cpuprofile(args.profile_jobs):
+        ret = ifo.func(plug, jargs)
     # logplugin("end", chalk.blue(ifo.jid), jargs_str)
     return ret
 
@@ -442,13 +441,13 @@ def broadcast(name,
         num_loading -= 1
 
     ret = None
-    for plugin in plugins:
+    for plugin in alls:
         if filter and not filter(plugin):
             continue
 
         plug = get_plug(plugin)
-        if msg and plug:
-            logplugin(" -", msg.format(id=plug.id))
+        # if msg and plug:
+        #     logplugin(" -", msg.format(id=plug.id))
 
         if threaded:
             threading.Thread(target=_invoke, args=(plug,)).start()

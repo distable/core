@@ -56,29 +56,19 @@ class Math2DPlugin(Plugin):
 
     @plugjob
     def mat2d(self, p: transform2d_job = None):
-        pil = p.ctx.image
-        if pil is None:
+        img = p.session.image_cv2
+        if img is None:
             return
 
-        img_0 = pil2cv(pil)
-
-        center = (1 * img_0.shape[1] // 2, 1 * img_0.shape[0] // 2)
-        trans_mat = np.float32(
+        center = (1 * img.shape[1] // 2, 1 * img.shape[0] // 2)
+        translate = np.float32(
                 [[1, 0, p.x],
                  [0, 1, p.y]]
         )
-        rot_mat = cv2.getRotationMatrix2D(center, p.rot, p.zoom)
-        trans_mat = np.vstack([trans_mat, [0, 0, 1]])
-        rot_mat = np.vstack([rot_mat, [0, 0, 1]])
-        transformation_matrix = np.matmul(rot_mat, trans_mat)
-        img_0 = cv2.warpPerspective(
-                img_0,
-                transformation_matrix,
-                (img_0.shape[1], img_0.shape[0]),
-                borderMode=cv2.BORDER_REFLECT
-        )
+        rotate = cv2.getRotationMatrix2D(center, p.rot, p.zoom)
+        transform = np.matmul(np.vstack([rotate, [0, 0, 1]]),
+                              np.vstack([translate, [0, 0, 1]]))
 
-        # Convert to pil
-        pil = cv2pil(img_0)
+        img = cv2.warpPerspective(img, transform, (img.shape[1], img.shape[0]), borderMode=cv2.BORDER_REFLECT)
 
-        return pil.convert("RGB")
+        return img

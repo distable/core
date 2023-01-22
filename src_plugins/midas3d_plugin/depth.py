@@ -7,6 +7,8 @@ import torch
 import torchvision.transforms as T
 import torchvision.transforms.functional as TF
 from torchvision import transforms
+
+from src_core.lib import devices
 from .infer import InferenceHelper
 from .adabins import UnetAdaptiveBins
 
@@ -72,27 +74,33 @@ class DepthModel:
         self.adabins_helper = None
         self.depth_min = 1000
         self.depth_max = -1000
-        self.device = device
         self.midas_model = None
         self.midas_transform = None
+        self.device = device
 
-    def load_adabins(self, models_path):
+    def download_adabins(self, models_path):
         if not os.path.exists(os.path.join(models_path, 'AdaBins_nyu.pt')):
             print("..downloading AdaBins_nyu.pt")
             os.makedirs(models_path, exist_ok=True)
             download_file("https://huggingface.co/deforum/AdaBins/resolve/main/AdaBins_nyu.pt", models_path)
-        self.adabins_helper = InferenceHelper(models_path, dataset='nyu', device=self.device)
 
-    def load_midas(self, models_path, half_precision=True):
+    def download_midas(self, models_path):
+        # path = os.path.join(models_path, "dpt_large-midas-2f21e586.pt"),
         if not os.path.exists(os.path.join(models_path, 'dpt_large-midas-2f21e586.pt')):
             print("..downloading dpt_large-midas-2f21e586.pt")
             download_file("https://huggingface.co/deforum/MiDaS/resolve/main/dpt_large-midas-2f21e586.pt", models_path)
 
+    def load_adabins(self, models_path):
+        self.adabins_helper = InferenceHelper(models_path, dataset='nyu', device=self.device)
+        self.adabins_helper.model.to(devices.cpu)
+
+    def load_midas(self, models_path, half_precision=True):
         self.midas_model = DPTDepthModel(
                 path=os.path.join(models_path, "dpt_large-midas-2f21e586.pt"),
                 backbone="vitl16_384",
                 non_negative=True,
         )
+
         normalization = NormalizeImage(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5])
 
         self.midas_transform = T.Compose([
@@ -111,20 +119,21 @@ class DepthModel:
         self.midas_model.eval()
         if half_precision and self.device == torch.device("cuda"):
             self.midas_model = self.midas_model.to(memory_format=torch.channels_last)
-            self.midas_model = self.midas_model.half()
-        self.midas_model.to(self.device)
+            # self.midas_model = self.midas_model.half()
+        self.midas_model.to(devices.cpu)
 
-    def predict(self, prev_img_cv2, w_midas) -> torch.Tensor:
-        w, h = prev_img_cv2.shape[1], prev_img_cv2.shape[0]
+    def predict(self, img_cv2, w_midas) -> torch.Tensor:
+        w, h = img_cv2.shape[1], img_cv2.shape[0]
 
         # predict depth with AdaBins
         use_adabins = w_midas < 1.0 and self.adabins_helper is not None
         if use_adabins:
+            self.adabins_helper.model.to(self.device)
             MAX_ADABINS_AREA = 500000
             MIN_ADABINS_AREA = 448 * 448
 
             # resize image if too large or too small
-            img_pil = Image.fromarray(cv2.cvtColor(prev_img_cv2.astype(np.uint8), cv2.COLOR_RGB2BGR))
+            img_pil = Image.fromarray(cv2.cvtColor(img_cv2.astype(np.uint8), cv2.COLOR_RGB2BGR))
             image_pil_area = w * h
             resized = True
             if image_pil_area > MAX_ADABINS_AREA:
@@ -155,17 +164,19 @@ class DepthModel:
                 print(f"  exception encountered, falling back to pure MiDaS")
                 use_adabins = False
             torch.cuda.empty_cache()
+        # self.adabins_helper.model.to(devices.cpu)
 
         if self.midas_model is not None:
+            self.midas_model.to(self.device)
             # convert image from 0->255 uint8 to 0->1 float for feeding to MiDaS
-            img_midas = prev_img_cv2.astype(np.float32) / 255.0
+            img_midas = img_cv2.astype(np.float32) / 255.0
             img_midas_input = self.midas_transform({"image": img_midas})["image"]
 
             # MiDaS depth estimation implementation
             sample = torch.from_numpy(img_midas_input).float().to(self.device).unsqueeze(0)
             if self.device == torch.device("cuda"):
                 sample = sample.to(memory_format=torch.channels_last)
-                sample = sample.half()
+                # sample = sample.half()
             with torch.no_grad():
                 midas_depth = self.midas_model.forward(sample)
             midas_depth = torch.nn.functional.interpolate(
@@ -191,8 +202,10 @@ class DepthModel:
             depth_tensor = torch.from_numpy(depth_map).squeeze().to(self.device)
         else:
             depth_tensor = torch.ones((h, w), device=self.device)
+        # self.midas_model.to(devices.cpu)
 
-        return depth_tensor
+
+        return depth_tensor.cpu()
 
     def to_pil(self, depth):
         depth = depth.cpu().numpy()

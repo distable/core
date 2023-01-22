@@ -7,7 +7,7 @@ import shutil
 import sys
 from pathlib import Path
 
-from jargs import argp, args, determine_session, spaced_args
+from jargs import argp, args, get_discore_session, spaced_args
 from src_core.lib.corelib import shlexrun_err
 
 logging.captureWarnings(True)
@@ -15,7 +15,7 @@ logging.getLogger("py.warnings").setLevel(logging.ERROR)
 
 os.chdir(Path(__file__).parent)
 
-DEFAULT_ACTION = 'render'
+DEFAULT_ACTION = None
 VENV_DIR = "venv"
 
 # The actual script when launched as standalone
@@ -52,9 +52,9 @@ if not args.run:
     if args.upgrade:
         # Install requirements with venv pip
         if args.no_venv:
-            shlexrun_err(f"{sys.executable} -m pip install -r requirements.txt")
+            os.system(f"{sys.executable} -m pip install -r requirements.txt")
         else:
-            shlexrun_err(f"{VENV_DIR}/bin/pip install -r requirements.txt")
+            os.system(f"{VENV_DIR}/bin/pip install -r requirements.txt")
         print('----------------------------------------')
         print("\n\n")
         exit(0)
@@ -79,72 +79,9 @@ from src_core.classes import paths
 
 
 def on_ctrl_c():
-    from src_core.classes.logs import loglaunch
-    loglaunch("Exiting because of Ctrl+C.")
+    from src_core.classes.logs import logdiscore
+    logdiscore("Exiting because of Ctrl+C.")
     exit(0)
-
-
-def main():
-    from src_core import core
-    from src_core import renderer
-    renderer.args = args
-
-    if args.newplug:
-        plugin_wizard()
-        return
-
-    # Deployment
-    # ----------------------------------------
-    if args.local:
-        from deploy import deploy_local
-        deploy_local()
-    elif args.vastai or args.vastai_continue:
-        from deploy import deploy_vastai
-        deploy_vastai()
-    else:
-        from src_core.classes import common
-        common.setup_ctrl_c(on_ctrl_c)
-
-        from src_core.classes.paths import parse_action_script
-        a, sc = parse_action_script(args.action, DEFAULT_ACTION)
-
-        if a is not None:
-            # Run an action script
-            # ----------------------------------------
-            # Get the path, check if it exists
-            apath = paths.get_script_file_path(a)
-            if not apath.is_file():
-                from src_core.classes.logs import loglaunch_err
-                loglaunch_err(f"Unknown action '{args.action}' (searched at {apath})")
-                exit(1)
-
-            # Load the action script module
-            amod = importlib.import_module(paths.get_script_module_path(a), package=a)
-            if amod is None:
-                from src_core.classes.logs import loglaunch_err
-                loglaunch_err(f"Couldn't load '{args.action}'")
-                exit(1)
-
-            # By specifying this attribute, we can skip session loading when it's unnecessary to gain speed
-            if not hasattr(amod, 'disable_startup_session') or not amod.disable_startup_session:
-                core.open(determine_session())
-
-            amod.action(args)
-        else:
-            # Nothing is specified
-            # ----------------------------------------
-            from src_core.classes.Session import Session
-            core.init(pluginstall=args.install, restore=Session.now())
-
-            # Dry run, only install and exit.
-            if args.dry:
-                from src_core.classes.logs import loglaunch
-                loglaunch("Exiting because of --dry argument")
-                exit(0)
-
-            # Start server
-            from src_core import server
-            server.run()
 
 
 def plugin_wizard():
@@ -235,6 +172,81 @@ def plugin_wizard():
     print("Done!")
     input()
     exit(0)
+
+
+def main():
+    from src_core import core
+    from src_core.classes.logs import logdiscore_err
+    from src_core.classes.logs import logdiscore
+    from yachalk import chalk
+
+    if args.newplug:
+        plugin_wizard()
+        return
+
+    # Deployment
+    # ----------------------------------------
+    if args.local:
+        from deploy import deploy_local
+        deploy_local()
+    elif args.vastai or args.vastai_continue:
+        from deploy import deploy_vastai
+        deploy_vastai()
+    else:
+        from src_core.classes import common
+        common.setup_ctrl_c(on_ctrl_c)
+
+        from src_core.classes.paths import parse_action_script
+        a, sc = parse_action_script(args.action, DEFAULT_ACTION)
+
+        logdiscore(chalk.green(f"action: {a}"))
+        logdiscore(chalk.green(f"script: {sc}"))
+
+        if a is not None:
+            # Run an action script
+            # ----------------------------------------
+            # Get the path, check if it exists
+            apath = paths.get_script_file_path(a)
+            if not apath.is_file():
+                logdiscore_err(f"Unknown action '{args.action}' (searched at {apath})")
+                print_possible_scripts()
+                exit(1)
+
+            # Load the action script module
+            amod = importlib.import_module(paths.get_script_module_path(a), package=a)
+            if amod is None:
+                logdiscore_err(f"Couldn't load '{args.action}'")
+                print_possible_scripts()
+                exit(1)
+
+            # By specifying this attribute, we can skip session loading when it's unnecessary to gain speed
+            amod.action(args)
+        else:
+            # Nothing is specified
+            # ----------------------------------------
+            from src_core.classes.Session import Session
+            core.init(pluginstall=args.install)
+
+            # Dry run, only install and exit.
+            if args.dry:
+                logdiscore("Exiting because of --dry argument")
+                exit(0)
+
+            # Start server
+            from src_core import server
+            server.run()
+
+def print_possible_scripts():
+    from src_core.classes.logs import logdiscore
+    logdiscore("All scripts: ")
+    # Iterate with os.walk
+    for root, dirs, files in os.walk(paths.scripts):
+        files = sorted(files, key=len)
+        if 'libs' not in root:
+            for file in files:
+                if file.endswith(".py") and not file.startswith("__"):
+                    # Print the relative path to root without extension
+                    print(f"  {os.path.relpath(os.path.join(root, file), paths.scripts)[:-3]}")
 
 
 main()

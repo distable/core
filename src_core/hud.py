@@ -34,7 +34,7 @@ def clear_hud():
     """
     hud_rows.clear()
 
-def save_hud():
+def draw_hud(session):
     """
     Add a HUD and save/edit current in hud folder for this frame
     """
@@ -48,8 +48,8 @@ def save_hud():
     for row in work_rows:
         lines += row[0].count('\n')
 
-    w = core.gs.w
-    h = core.gs.h
+    w = session.w
+    h = session.h
     padding = 12
     font = ImageFont.truetype(str(paths.plug_res / 'vt323.ttf'), 15)
     tw, ht = font.getsize_multiline("foo")
@@ -57,9 +57,10 @@ def save_hud():
     new_pil = Image.new('RGB', (w + padding * 2, h + ht * lines + padding * 2), color=(0, 0, 0))
 
     # Draw the old pil on the new pil at the top
-    new_pil.paste(core.gs.ctx.image, (padding, padding))
+    if session.image:
+        new_pil.paste(session.image, (padding, padding))
 
-    # Draw the arbirary string on the new pil at the bottom
+    # Draw the arbitrary string on the new pil at the bottom
     draw = ImageDraw.Draw(new_pil)
     x = padding
     y = h + padding * 1.25
@@ -71,7 +72,9 @@ def save_hud():
             draw.text((x, y), frag, font=font, fill=color)
             y += ht
 
-    # Save the new pil
-    save_png(new_pil,
-             core.gs.current_frame_path('prompt_hud').with_suffix('.png'),
+    return new_pil
+
+def save_hud(session, hud):
+    save_png(hud,
+             session.determine_current_frame_path('prompt_hud').with_suffix('.png'),
              with_async=True)

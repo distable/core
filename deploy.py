@@ -373,7 +373,7 @@ def deploy_vastai():
         while continue_work:
             time.sleep(5)
             import jargs
-            n = jargs.determine_session()
+            n = jargs.get_discore_session()
             src2 = dst / paths.sessions_name / n
             dst2 = src / paths.sessions_name
             os.system(f"rsync -az -e 'ssh -p {port}' root@{ip}:{src2} {dst2}")

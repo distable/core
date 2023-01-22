@@ -11,6 +11,7 @@ from src_core.classes import paths
 from src_core.classes.Session import Session
 
 bg_jobs = False
+session = None
 
 
 @click.group()
@@ -21,6 +22,10 @@ def cli():
 @shell(prompt='\n> ')
 def run():
     from src_core import plugins
+
+    global session
+    session = Session.now()
+
     def flatten(l):
         return [item for sublist in l for item in sublist]
 
@@ -34,15 +39,15 @@ def run():
             kw = dict()
             for a in args.args:
                 kw.update([a.split('=')])
-            src_core.core.run(plugins.new_args(c.command.name, kwargs=kw), fg=bg_jobs)
+            session.run(plugins.new_args(c.command.name, kwargs=kw), fg=bg_jobs)
 
         # Annotate the function as we normally would with @
         cmdfunc = click.pass_context(cmdfunc)
         cmdfunc = run.command(jid, context_settings=dict(ignore_unknown_options=True, allow_extra_args=True))(cmdfunc)
 
         # Add argument documentation
-        pclasses = ifo.get_paramclass()
-        pclasses = [pclasses, *inspect.getmro(ifo.get_paramclass())]
+        pclasses = ifo.paramclass
+        pclasses = [pclasses, *inspect.getmro(ifo.paramclass)]
 
         args = flatten([inspect.signature(cls).parameters.values() for cls in pclasses])
         for arg in args:
@@ -82,10 +87,11 @@ def session(name=None):
     Args:
         name: the name of the session to load. If not provided, a new session will be created.
     """
+    global session
     if name is None:
-        src_core.core.gs = Session.now()
+        session = Session.now()
     else:
-        src_core.core.gs = Session(name)
+        session = Session(name)
 
 
 @run.command()
