@@ -1,5 +1,7 @@
 import random
 from dataclasses import dataclass
+from math import sqrt
+
 from src_core.classes.printlib import pct
 from src_core.hud import hud
 
@@ -58,6 +60,19 @@ class RenderVars:
     @image.setter
     def image(self, value):
         self.session.set(value)
+
+    @property
+    def speed(self):
+        # magnitude of x and y
+        return sqrt(self.x ** 2 + self.y ** 2)
+
+    @speed.setter
+    def speed(self, value):
+        # magnitude of x and y
+        speed = self.speed
+        if speed > 0:
+            self.x = abs(self.x) / speed * value
+            self.y = abs(self.y) / speed * value
 
     def reset(self, f, session):
         from src_core import core

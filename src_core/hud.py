@@ -4,7 +4,7 @@ from src_core import core
 from src_core.classes import paths
 from src_core.classes.convert import save_png
 
-hud_rows = []
+hud_rows = [] # list[tuple[str, tuple[int, int, int]]]
 work_rows = []
 
 def hud(*args, tcolor=(255, 255, 255), **kwargs):

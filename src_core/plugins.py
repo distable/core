@@ -144,7 +144,16 @@ def instantiate_plugin_at(path: Path, install=True):
     try:
         plugin_dirs.append(path)
 
+        # Install requirements
+        # ----------------------------------------
+        reqpath = (paths.code_plugins / pid / 'requirements.txt')
+        if install and reqpath.exists():
+            with trace(f'src_plugins.{path.stem}.requirements.txt'):
+                installing.pipreqs(reqpath)
+
         # Import __install__ -
+        # Note: __install_ is still called even if we are not
+        #       installing so that we can still declare our installations
         # ----------------------------------------
         installing.skip_installations = not install
         installing.default_basedir = paths.plug_repos / pid
@@ -175,10 +184,11 @@ def instantiate_plugin_at(path: Path, install=True):
             with trace(f'src_plugins.{path.stem}.find'):
                 for f in path.iterdir():
                     if f.is_file() and f.suffix == '.py':
-                        mod = importlib.import_module(f'src_plugins.{path.stem}.{f.stem}')
-                        for name, member in inspect.getmembers(mod):
-                            if inspect.isclass(member) and issubclass(member, Plugin) and not member == Plugin:
-                                classtype = member
+                        with trace(f'src_plugins.{path.stem}.{f.stem}'):
+                            mod = importlib.import_module(f'src_plugins.{path.stem}.{f.stem}')
+                            for name, member in inspect.getmembers(mod):
+                                if inspect.isclass(member) and issubclass(member, Plugin) and not member == Plugin:
+                                    classtype = member
 
             if classtype is None:
                 logplugin_err(f'No plugin class found in {path}')

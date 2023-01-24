@@ -62,8 +62,8 @@ class Math2DPlugin(Plugin):
 
         center = (1 * img.shape[1] // 2, 1 * img.shape[0] // 2)
         translate = np.float32(
-                [[1, 0, p.x],
-                 [0, 1, p.y]]
+                [[1, 0, -p.x],
+                 [0, 1, -p.y]]
         )
         rotate = cv2.getRotationMatrix2D(center, p.rot, p.zoom)
         transform = np.matmul(np.vstack([rotate, [0, 0, 1]]),

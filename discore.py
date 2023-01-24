@@ -220,7 +220,16 @@ def main():
                 exit(1)
 
             # By specifying this attribute, we can skip session loading when it's unnecessary to gain speed
+            import src_core.renderer
+            import threading
+
+            # t = threading.Thread(target=src_core.renderer.start_mainloop)
+            # t.start()
             amod.action(args)
+
+
+            # threading.Thread(target=amod.action, args=tuple([args])).start()
+            # renderer.start_mainloop()
         else:
             # Nothing is specified
             # ----------------------------------------
@@ -236,6 +245,7 @@ def main():
             from src_core import server
             server.run()
 
+
 def print_possible_scripts():
     from src_core.classes.logs import logdiscore
     logdiscore("All scripts: ")
@@ -248,5 +258,20 @@ def print_possible_scripts():
                     # Print the relative path to root without extension
                     print(f"  {os.path.relpath(os.path.join(root, file), paths.scripts)[:-3]}")
 
+# from classes.printlib import cpuprofile
+# with cpuprofile():
+#     import pytorch_lightning as pl
+
+from src_core.classes import printlib
+import user_conf
+
+printlib.print_timing = user_conf.print_timing
+printlib.print_trace = user_conf.print_trace
+printlib.print_gputrace = user_conf.print_gputrace
+
+if user_conf.print_extended_init:
+    from src_core import installing
+    installing.print_info()
+    print()
 
 main()

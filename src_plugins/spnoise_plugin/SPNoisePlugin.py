@@ -74,7 +74,7 @@ class SPNoisePlugin(Plugin):
         # print(maskpil, j.session.current_frame_path('perlin'))
         # save_png(Image.fromarray(np.uint8(dst)), j.session.current_frame_path('perlin'), with_async=True)
 
-        return ret
+        return np.uint8(ret)
 
 
     @plugjob

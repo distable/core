@@ -7,25 +7,30 @@ share = False
 # ----------------------------------------
 
 precision = "full"
-print_timing = False
-print_trace = False
-print_gputrace = False
-print_extended_init = False
-print_more2 = False
+enable_print = jargs.args.print
+print_timing = enable_print
+print_trace = enable_print
+print_gputrace = enable_print
+print_extended_init = enable_print
+print_more2 = enable_print
+print_jobs = enable_print
+
 
 # Plugins
 # ----------------------------------------
 
 plugload('copyres')
 plugload('distable/disco-party')
+plugload('distable/ryusig-calc')
 
 sd = plugdef('distable/sd1111_plugin')
+
 # paella = plugload('paella')
 # kup = plugdef('kupscale')
 wc = plugload('wildcard')
 mgk = plugload('magick')
 m2d = plugload('math2d')
-m3d = plugdef('midas3d')
+# m3d = plugdef('midas3d')
 flo = plugload('opticalflow')
 edgedet = plugload('edgedet')
 noise = plugload('spnoise')
@@ -38,14 +43,15 @@ aliasdef(dream='sd1111.txt2img',
          imagine='sd1111.txt2img')
 
 forbidden_dev_jobs = [
-    'txt2img',
-    'img2img',
-    'sd1111.txt2img',
-    'sd1111.img2img',
+#     'txt2img',
+#     'img2img',
+#     'sd1111.txt2img',
+#     'sd1111.img2img',
 ]
 
 # sd.res_ckpt = 'miniSD.ckpt'
 # sd.res_ckpt = 'sd-v2-0-depth.ckpt'
+sd.res_ckpt = 'nouvisPsychedelicMod_15.ckpt'
 sd.medvram = True
 sd.lowvram = False
 sd.lowram = False
@@ -57,12 +63,12 @@ sd.batch_cond_uncond = False
 # Deployment
 # ----------------------------------------
 vastai_default_search = "gpu_name=RTX_3090"
-vastai_sshfs = True # Mount via sshfs
+vastai_sshfs = True  # Mount via sshfs
 vastai_sshfs_path = "~/discore/mount/"
 
 deploy_urls = {
-    'sd-v1-5.ckpt' : 'https://huggingface.co/runwayml/stable-diffusion-v1-5/resolve/main/v1-5-pruned-emaonly.ckpt',
-    'vae.vae.pt' : 'https://huggingface.co/stabilityai/sd-vae-ft-mse-original/resolve/main/vae-ft-mse-840000-ema-pruned.ckpt',
+    'sd-v1-5.ckpt': 'https://huggingface.co/runwayml/stable-diffusion-v1-5/resolve/main/v1-5-pruned-emaonly.ckpt',
+    'vae.vae.pt'  : 'https://huggingface.co/stabilityai/sd-vae-ft-mse-original/resolve/main/vae-ft-mse-840000-ema-pruned.ckpt',
 }
 
 if jargs.args.remote:

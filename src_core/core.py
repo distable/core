@@ -20,10 +20,6 @@ from src_core.classes.logs import logcore, logcore_err
 from src_core.classes.Session import Session
 from src_core.installing import is_installed, pipargs, print_info, python
 
-printlib.print_timing = user_conf.print_timing
-printlib.print_trace = user_conf.print_trace
-printlib.print_gputrace = user_conf.print_gputrace
-
 torch_command = os.environ.get('TORCH_COMMAND', "pip install torch==1.12.1+cu113 torchvision==0.13.1+cu113 --extra-index-url https://download.pytorch.org/whl/cu113")
 clip_package = os.environ.get('CLIP_PACKAGE', "git+https://github.com/openai/CLIP.git@d50d76daa670286dd6cacf3bcd80b5e4823fc8e1")
 requirements_file = os.environ.get('REQS_FILE', "../requirements_versions.txt")
@@ -54,11 +50,11 @@ proxy = None
 def setup_annoying_logging():
     # Disable annoying message 'Some weights of the model checkpoint at openai/clip-vit-large-patch14 were not used ...'
     from transformers import logging
-    logging.set_verbosity_error()
-    import sys
-    if not sys.warnoptions:
-        import warnings
-        warnings.simplefilter("ignore")
+    # logging.set_verbosity_error()
+    # import sys
+    # if not sys.warnoptions:
+    #     import warnings
+    #     warnings.simplefilter("ignore")
 
 
 # def setup_memmon():
@@ -74,6 +70,7 @@ def init(step=2, pluginstall=None):
         pluginstall:
         step: The initialization step to stop at.
     """
+    print("core.init")
 
     if pluginstall is None:
         pluginstall = jargs.args.install
@@ -81,14 +78,12 @@ def init(step=2, pluginstall=None):
     os.chdir(paths.root.as_posix())
 
     if step >= 0:
-        setup_annoying_logging()
-        setup_ctrl_c()
-
-        if user_conf.print_extended_init:
-            print_info()
-            print()
+        print("core.init(step=0)")
+        # setup_annoying_logging()
+        # setup_ctrl_c()
 
     if step >= 1:
+        print("core.init(step=1)")
         install_core()
         # pluginstall=True
         if pluginstall:
@@ -96,6 +91,7 @@ def init(step=2, pluginstall=None):
         create_plugins(pluginstall)
 
     if step >= 2:
+        print("core.init(step=2)")
         # log_jobs()
         if pluginstall:
             install_plugins()
