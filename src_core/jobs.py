@@ -98,7 +98,7 @@ def run(job):
             job.on_done(ret)
 
     # Finish the job ----------------------------------------
-    update(job, 1)
+    job.update_progress(1)
 
     if job.aborting:
         # logjob("Aborted: ", job)
@@ -118,9 +118,9 @@ def run(job):
     return ret
 
 
-def update(job: Job, progress: float):
-    job.state.progress_norm = progress
-    server.emit('job_updated', extract_dict(job, 'uid', 'state'))
+# def update(job: Job, progress: float):
+#     job.state.progress_norm = progress
+#     server.emit('job_updated', extract_dict(job, 'uid', 'state'))
 
 
 def abort(job: str | Job):

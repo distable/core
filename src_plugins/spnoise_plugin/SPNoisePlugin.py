@@ -86,45 +86,45 @@ class SPNoisePlugin(Plugin):
         if img is None:
             return None
 
-        noise = random_noise(img, mode='s&p', amount=j.coverage)
-        img = np.array(255 * noise, dtype='uint8')
+        # noise = random_noise(img, mode='s&p', amount=j.coverage)
+        # img = np.array(255 * noise, dtype='uint8')
 
-        # # if mask is not None:
-        # #     mask = np.array(mask.convert("RGB"))
-        #
-        # original_dtype = img.dtype
-        #
-        # # Derive the number of intensity levels from the array datatype.
-        # intensity_levels = 2 ** (img[0, 0].nbytes * 8)
-        # min_intensity = 0
-        # max_intensity = intensity_levels - 1
-        #
-        # random_image_arr = np.random.choice(
-        #         [min_intensity, 1, np.nan],
-        #         p=[j.coverage / 2, 1 - j.coverage, j.coverage / 2],
-        #         size=img.shape
-        # )
-        #
-        # # This results in an image array with the following properties:
-        # # - With probability 1 - prob: the pixel KEEPS ITS VALUE (it was multiplied by 1)
-        # # - With probability prob/2: the pixel has value zero (it was multiplied by 0)
-        # # - With probability prob/2: the pixel has value np.nan (it was multiplied by np.nan)
-        # # `arr.astype(np.float)` to make sure np.nan is a valid value.
-        # salt_and_peppered_arr = img.astype(float) * random_image_arr
-        #
-        # # Since we want SALT instead of NaN, we replace it.
-        # # We cast the array back to its original dtype so we can pass it to PIL.
-        # salt_and_peppered_arr = np.nan_to_num(
-        #         salt_and_peppered_arr,
-        #         nan=max_intensity
-        # ).astype(original_dtype)
-        #
-        # ret = salt_and_peppered_arr
-        #
-        # # if mask is not None:
-        # #     zeros = np.zeros_like(img)
-        # # ret = ret * mask + zeros * (1-mask)
-        #
-        # img = Image.fromarray(ret)
+        # if mask is not None:
+        #     mask = np.array(mask.convert("RGB"))
+
+        original_dtype = img.dtype
+
+        # Derive the number of intensity levels from the array datatype.
+        intensity_levels = 2 ** (img[0, 0].nbytes * 8)
+        min_intensity = 0
+        max_intensity = intensity_levels - 1
+
+        random_image_arr = np.random.choice(
+                [min_intensity, 1, np.nan],
+                p=[j.coverage / 2, 1 - j.coverage, j.coverage / 2],
+                size=img.shape
+        )
+
+        # This results in an image array with the following properties:
+        # - With probability 1 - prob: the pixel KEEPS ITS VALUE (it was multiplied by 1)
+        # - With probability prob/2: the pixel has value zero (it was multiplied by 0)
+        # - With probability prob/2: the pixel has value np.nan (it was multiplied by np.nan)
+        # `arr.astype(np.float)` to make sure np.nan is a valid value.
+        salt_and_peppered_arr = img.astype(float) * random_image_arr
+
+        # Since we want SALT instead of NaN, we replace it.
+        # We cast the array back to its original dtype so we can pass it to PIL.
+        salt_and_peppered_arr = np.nan_to_num(
+                salt_and_peppered_arr,
+                nan=max_intensity
+        ).astype(original_dtype)
+
+        ret = salt_and_peppered_arr
+
+        # if mask is not None:
+        #     zeros = np.zeros_like(img)
+        # ret = ret * mask + zeros * (1-mask)
+
+        img = Image.fromarray(ret)
 
         return img

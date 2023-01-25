@@ -1,6 +1,21 @@
 import os
 import subprocess
+from colorsys import hsv_to_rgb
 from pathlib import Path
+
+
+rgb_to_hex = lambda tuple: f"#{int(tuple[0] * 255):02x}{int(tuple[1] * 255):02x}{int(tuple[2] * 255):02x}"
+
+
+def generate_colors(n, s=0.825, v=0.915):
+    golden_ratio_conjugate = 0.618033988749895
+    h = 0
+    ret = []
+    for i in range(n):
+        h += golden_ratio_conjugate
+        ret.append(rgb_to_hex(hsv_to_rgb(h % 1, s, v)))
+
+    return ret
 
 
 def to_dict(f):
@@ -28,11 +43,13 @@ def shlexrun_err(cm):
     proc = shlexrun(cm, stderr=subprocess.STDOUT, stdout=subprocess.PIPE, shell=True)
     return proc.stdout.decode('utf-8')
 
+
 def shlexproc(cmd, **kwargs):
     import shlex
     import subprocess
     print(cmd)
     return subprocess.Popen(shlex.split(cmd), **kwargs)
+
 
 def shlexproc_err(cm):
     proc = shlexproc(cm, stderr=subprocess.STDOUT, stdout=subprocess.PIPE, shell=True)

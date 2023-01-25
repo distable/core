@@ -51,7 +51,7 @@ forbidden_dev_jobs = [
 
 # sd.res_ckpt = 'miniSD.ckpt'
 # sd.res_ckpt = 'sd-v2-0-depth.ckpt'
-sd.res_ckpt = 'nouvisPsychedelicMod_15.ckpt'
+# sd.res_ckpt = 'nouvisPsychedelicMod_15.ckpt'
 sd.medvram = True
 sd.lowvram = False
 sd.lowram = False

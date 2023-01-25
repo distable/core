@@ -18,7 +18,7 @@ class RenderVars:
     nprompt = None
     w: int = 640
     h: int = 448
-    force: int = 0
+    scalar: int = 0
     fps: int = 24
     x: float = 0
     y: float = 0
@@ -44,6 +44,7 @@ class RenderVars:
     dt: float = 1 / fps
     ref: float = 1 / 12 * fps
     draft: float = 1
+    dry:bool = False
 
     # Allow defining new variables on demand
     def __getattr__(self, key):
@@ -79,6 +80,7 @@ class RenderVars:
         v = self
         s = session
 
+        v.dry = False
         v.session = s
 
         v.x, v.y, v.z, v.r = 0, 0, 0, 0
@@ -102,4 +104,4 @@ class RenderVars:
         hud(hue=v.hue, sat=v.sat, val=v.val)
         hud(d=v.d, chg=pct(v.chg), cfg=v.cfg, nguide=pct(v.nguide), nsp=pct(v.nsp))
         hud(seed=v.seed, sampler=v.sampler)
-        hud(force=v.force)
+        hud(force=v.scalar)

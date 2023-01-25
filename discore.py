@@ -263,6 +263,7 @@ def print_possible_scripts():
 #     import pytorch_lightning as pl
 
 from src_core.classes import printlib
+from src_core import core
 import user_conf
 
 printlib.print_timing = user_conf.print_timing
@@ -273,5 +274,7 @@ if user_conf.print_extended_init:
     from src_core import installing
     installing.print_info()
     print()
+
+core.setup_annoying_logging()
 
 main()
