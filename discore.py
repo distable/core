@@ -7,8 +7,7 @@ import shutil
 import sys
 from pathlib import Path
 
-from jargs import argp, args, get_discore_session, spaced_args
-from src_core.lib.corelib import shlexrun_err
+from jargs import argp, args, spaced_args
 
 logging.captureWarnings(True)
 logging.getLogger("py.warnings").setLevel(logging.ERROR)
@@ -220,8 +219,6 @@ def main():
                 exit(1)
 
             # By specifying this attribute, we can skip session loading when it's unnecessary to gain speed
-            import src_core.renderer
-            import threading
 
             # t = threading.Thread(target=src_core.renderer.start_mainloop)
             # t.start()
@@ -233,7 +230,6 @@ def main():
         else:
             # Nothing is specified
             # ----------------------------------------
-            from src_core.classes.Session import Session
             core.init(pluginstall=args.install)
 
             # Dry run, only install and exit.

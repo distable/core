@@ -3,23 +3,71 @@ from dataclasses import dataclass
 from math import sqrt
 
 from src_core.classes.printlib import pct
-from src_core.hud import hud
+from src_core.rendering.hud import hud
+
+@dataclass
+class SessionVars:
+    session: 'Session' = None
+
+    # Allow defining new variables on demand
+    def __getattr__(self, key):
+        if key not in self.__dict__:
+            self.__dict__[key] = 0
+
+    def __setattr__(self, key, value):
+        super().__setattr__(key, value)
+
+    @property
+    def image(self):
+        return self.session.image
+
+    @image.setter
+    def image(self, value):
+        self.session.set(value)
+
+    @property
+    def image_cv2(self):
+        return self.session.image_cv2
+
+    @image_cv2.setter
+    def image_cv2(self, value):
+        self.session.image_cv2 = value
+
+    @property
+    def fps(self):
+        return self.session.fps
+
+    @fps.setter
+    def fps(self, value):
+        self.session.fps = value
+
+    @property
+    def speed(self):
+        # magnitude of x and y
+        return sqrt(self.x ** 2 + self.y ** 2)
+
+    @speed.setter
+    def speed(self, value):
+        # magnitude of x and y
+        speed = self.speed
+        if speed > 0:
+            self.x = abs(self.x) / speed * value
+            self.y = abs(self.y) / speed * value
+
 
 
 @dataclass
-class RenderVars:
+class RenderVars(SessionVars):
     """
     Render variables supported by the renderer
     This provides a common interface for our libraries to use.
     """
-    session: 'Session' = None
     prompt: str = ""
     negprompt: str = ""
     nprompt = None
     w: int = 640
     h: int = 448
     scalar: int = 0
-    fps: int = 24
     x: float = 0
     y: float = 0
     z: float = 0
@@ -41,42 +89,12 @@ class RenderVars:
     f: int = 0
     w2: int = 0
     h2: int = 0
-    dt: float = 1 / fps
-    ref: float = 1 / 12 * fps
+    dt: float = 1 / 24
+    ref: float = 1 / 12 * 24
     draft: float = 1
     dry:bool = False
 
-    # Allow defining new variables on demand
-    def __getattr__(self, key):
-        if key not in self.__dict__:
-            self.__dict__[key] = 0
-
-    def __setattr__(self, key, value):
-        super().__setattr__(key, value)
-
-    @property
-    def image(self):
-        return self.session.image
-
-    @image.setter
-    def image(self, value):
-        self.session.set(value)
-
-    @property
-    def speed(self):
-        # magnitude of x and y
-        return sqrt(self.x ** 2 + self.y ** 2)
-
-    @speed.setter
-    def speed(self, value):
-        # magnitude of x and y
-        speed = self.speed
-        if speed > 0:
-            self.x = abs(self.x) / speed * value
-            self.y = abs(self.y) / speed * value
-
     def reset(self, f, session):
-        from src_core import core
         v = self
         s = session
 
