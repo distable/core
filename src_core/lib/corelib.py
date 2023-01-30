@@ -4,7 +4,7 @@ from colorsys import hsv_to_rgb
 from pathlib import Path
 import time
 
-from classes.printlib import trace
+from src_core.classes.printlib import trace
 
 
 rgb_to_hex = lambda tuple: f"#{int(tuple[0] * 255):02x}{int(tuple[1] * 255):02x}{int(tuple[2] * 255):02x}"
@@ -74,6 +74,6 @@ def invoke_safe(func, *kargs, failsleep=0.0, **kwargs):
             # Print the full stacktrace
             import traceback
             traceback.print_exc()
-            logdiscore_err(e)
+            print(e)
             time.sleep(failsleep)
             return False

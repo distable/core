@@ -62,6 +62,7 @@ class RenderVars(SessionVars):
     Render variables supported by the renderer
     This provides a common interface for our libraries to use.
     """
+    len:int = 0
     prompt: str = ""
     negprompt: str = ""
     nprompt = None

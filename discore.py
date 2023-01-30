@@ -79,7 +79,10 @@ from src_core.classes import paths
 
 def on_ctrl_c():
     from src_core.classes.logs import logdiscore
+    from src_core.rendering import renderer
+
     logdiscore("Exiting because of Ctrl+C.")
+    renderer.request_stop = True
     exit(0)
 
 
@@ -223,6 +226,8 @@ def main():
             # t = threading.Thread(target=src_core.renderer.start_mainloop)
             # t.start()
             amod.action(args)
+
+            print("Action done.")
 
 
             # threading.Thread(target=amod.action, args=tuple([args])).start()

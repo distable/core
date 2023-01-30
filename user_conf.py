@@ -43,10 +43,10 @@ aliasdef(dream='sd1111.txt2img',
          imagine='sd1111.txt2img')
 
 forbidden_dev_jobs = [
-#     'txt2img',
-#     'img2img',
-#     'sd1111.txt2img',
-#     'sd1111.img2img',
+    'txt2img',
+    'img2img',
+    'sd1111.txt2img',
+    'sd1111.img2img',
 ]
 
 # sd.res_ckpt = 'miniSD.ckpt'

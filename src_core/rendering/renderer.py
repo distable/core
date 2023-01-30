@@ -6,10 +6,15 @@ The script can have the following functions:
 
 - on_init(v)  (optional)
 - on_frame(v)  (required)
+
+
+Devmode:
+    - We will not check for script changes every frame.
 """
 
 import math
 import os
+import signal
 import sys
 import time
 from pathlib import Path
@@ -18,16 +23,14 @@ from yachalk import chalk
 
 import user_conf
 from jargs import args, get_discore_session
-from lib.corelib import invoke_safe
-# from src_core.rendering.hobo import init
-# from src_core.rendering.ryusig import ryusig_init
+from src_core.lib.corelib import invoke_safe
 from src_core.classes import paths
-from src_core.classes.logs import logdiscore_err
 from src_core.classes.paths import get_script_file_path, parse_action_script
 from src_core.classes.printlib import cpuprofile, trace, trace_decorator
 from src_core.classes.Session import Session
 from src_core.rendering.hud import clear_hud, draw_hud, hud, hud_rows, save_hud
 from src_core.rendering.rendervars import RenderVars
+from src_plugins.ryusig_calc.AudioPlayback import AudioPlayback
 
 initialized = False
 callbacks = []
@@ -36,25 +39,32 @@ v = RenderVars()
 session: None | Session = None  # Current session
 script_name = ''  # Name of the script file
 script_path = ''  # Path to the script file
-devmode = False  # Are we in dev mode?
 script = None  # The script module
+is_dev = False  # Are we in dev mode?
+is_cli = False
 
-start_f = 0  # Frame we started the renderer on
-n_rendered = 0  # Number of frames rendered
+# Parameters (long)
+detect_script_every = -1
+enable_save = True  # Enable saving the frames
+enable_save_hud = False # Enable saving the HUD frames
 
-paused = False  # Pause the playback/renderer
+# Parameters (short)
+paused = False
 looping = False  # Enable looping
 loop_start = 0  # Frame to loop back to
 play_until = 0  # Frame to play until (auto-stop)
-request_seek = []  # Frames to seek to
+seeks = []  # Frames to seek to
 request_script_check = False  # Check if the script has been modified
+request_pause = False  # Pause the playback/renderer
 request_render = False  # Render a frame
 request_stop = False  # Stop the whole renderer
-# audio = AudioPlayback()
+audio = AudioPlayback()
 
-enable_saving = True  # Enable saving the frames
-detect_script_every = -1
+# State (short)
+start_f = 0  # Frame we started the renderer on
+n_rendered = 0  # Number of frames rendered
 
+# State (internal)
 is_rendering = False
 was_paused = False
 last_frame_prompt = ""
@@ -62,10 +72,30 @@ last_frame_time = 0
 last_frame_dt = 1 / 24
 script_time_cache = {}
 invalidated = True
-
 elapsed = 0
-ltmp = []
 
+# Signals
+on_frame_changed = []
+on_t_changed = []
+
+# Temporary
+tmplist = [] # A list for temporary use
+
+
+# region Emits
+@trace_decorator
+def emit(name):
+    for cb in callbacks:
+        cb(v, name)
+
+
+def emit_register(cb):
+    callbacks.append(cb)
+
+
+# endregion
+
+# region Script
 def detect_script_modified():
     # TODO this is slow to do every frame
     def check_dir(path):
@@ -89,68 +119,6 @@ def detect_script_modified():
 
     return check_dir(paths.scripts) or check_dir(session.dirpath)
 
-@trace_decorator
-def emit(name):
-    for cb in callbacks:
-        cb(v, name)
-
-
-def emit_register(cb):
-    callbacks.append(cb)
-
-
-def start_mainloop():
-    """
-    This handles the main renderer on the main thread.
-
-    - Playback / Seeking
-    """
-    global invalidated, paused
-    global request_stop
-
-    while not request_stop:
-        if initialized:
-            update_playback()
-            sleep_dt()
-
-    request_stop = True
-
-
-def pause_toggle():
-    global request_render, paused, play_until, looping
-    looping = False
-    if is_rendering and request_render == 'toggle':
-        request_render = False
-    elif is_rendering and request_render == False:
-        start_rendering('toggle')
-    elif session.f == session.f_last + 1:
-        start_rendering('toggle')
-    else:
-        paused = not paused
-
-    if paused:
-        play_until = 0
-
-
-def pause_seek(f_target, manual_input=False):
-    global paused, looping, invalidated
-    global request_seek
-    if is_rendering: return
-
-    request_seek.append((f_target, manual_input))
-    paused = True
-    looping = False
-
-
-def start_rendering(mode):
-    global paused
-    global invalidated, request_render
-    if is_rendering: return
-    pause_seek(session.f_last)
-    pause_seek(session.f_last + 1)
-    paused = True
-    invalidated = True
-    request_render = mode
 
 def load_script(name=None):
     import importlib
@@ -196,11 +164,17 @@ def load_script(name=None):
         if script is not None and oldglobals is not None:
             script.__dict__.update(oldglobals)
 
-def render_init(s=None, scriptname='', dev=False):
+
+# endregion
+
+# region Core functionality
+
+def init(s=None, scriptname='', cli=False):
     global initialized
     global session, script_name
-    global devmode, paused
+    global is_dev, request_pause
     global invalidated
+    global is_cli
     from src_core import core
 
     session = s or get_discore_session()
@@ -228,29 +202,35 @@ def render_init(s=None, scriptname='', dev=False):
 
     core.init(pluginstall=args.install)
 
-    if dev:
+    if not cli:
         from src_core.rendering import hobo, ryusig
 
-        paused = True
+        audio.init(v.wavs, root=session.dirpath)
+
+        request_pause = True
         hobo.init()
-        if args.ryusig:
-            ryusig.ryusig_init()
-        session.dev = True
+        ryusig.ryusig_init(args.ryusig)
         session.seek_min()
     else:
         session.seek_new()
 
+    is_cli = cli
     invalidated = True
-    devmode = dev
+
+    signal.signal(signal.SIGTERM, handle_exit)
 
     initialized = True
     return session
 
 
-def render_loop(lo=None, hi=math.inf):
-    global request_render, request_script_check, request_seek
+def handle_exit():
+    print("hi")
+
+
+def loop(lo=None, hi=math.inf):
+    global request_render, request_script_check, seeks
     global invalidated, is_rendering, request_stop
-    global paused, last_frame_dt, elapsed, last_frame_time
+    global paused, request_pause, was_paused, last_frame_dt, last_frame_time
 
     if lo is not None:
         session.seek(lo)
@@ -259,128 +239,81 @@ def render_loop(lo=None, hi=math.inf):
 
     while session.f < hi and not request_stop:
         with trace("renderiter"):
-            with trace("renderiter.script_reload"):
-                # Iterate all files recursively in paths.script_dir
-                script_check_elapsed = time.time() - last_script_check
+            with trace("renderiter.reload_script_check"):
+                elapsed = time.time() - last_script_check
                 if request_script_check \
-                        or 0 < detect_script_every < script_check_elapsed \
-                        or not devmode:
+                        or elapsed > detect_script_every and detect_script_every > 0\
+                        or is_cli:
+                    request_script_check = False
                     if detect_script_modified():
                         print(chalk.dim(chalk.magenta("Change detected in scripts, reloading")))
                         invoke_safe(load_script)
                     last_script_check = time.time()
-                    request_script_check = False
 
-            with trace("renderiter.playback"):
-                if not paused:
-                    if last_frame_time is None:
-                        last_frame_time = time.time()
+            paused = request_pause
 
-                    last_frame_dt = time.time() - last_frame_time
-                    last_frame_time = time.time()
-
-                    elapsed += last_frame_dt
-                else:
-                    last_frame_time = None
-                    elapsed = 0
-
+            with trace("renderiter.update_playback"):
                 changed = update_playback()
                 # sleep_dt()
 
-            with trace("renderiter.seeking"):
-                ltmp.clear()
-                ltmp.extend(request_seek)
-                for iseek, manual in ltmp:
-                    session.f = iseek
+            just_paused = paused and not was_paused
+            just_unpaused = not paused and was_paused
 
-                    # Clamping
-                    if session.f_first is not None and session.f < session.f_first:
-                        session.f = session.f_first
-                    if session.f_last is not None and session.f > session.f_last + 1:
-                        session.f = session.f_last + 1
+            with trace("renderiter.flush_seeks"):
+                changed = flush_seeks(changed, seeks)
 
-                    session.load_f()
-                    session.load_file()
-                    invalidated = changed = True
-                    request_seek.pop(0)
-                    if manual:  # This is to process each frame even if there is multiple inputs buffered from pygame due to lag
-                        break
+            if changed:
+                invoke_safe(on_frame_changed, session.f)
+                invoke_safe(on_t_changed, session.t)
 
-                request_seek.clear()
+
+            with trace("renderiter.audio"):
+                if just_unpaused or is_dev and request_render == 'toggle':
+                    audio.play(session.t)
+                elif just_paused:
+                    audio.stop()
 
             with trace("renderiter.render"):
                 render = request_render == 'now' or request_render == 'toggle'
                 if render:
-                    # if changed:
-                    #     # For some reason current_session.image loads async and everything is fucked up if we don't wait
-                    #     time.sleep(0.05)
-
                     if request_render == 'now':
                         request_render = False
 
-                    session.seek_new()
+                    if session.f <= session.f_last:
+                        session.seek_new()
+
                     with cpuprofile(args.profile):
                         yield session.f
                 elif changed:
                     require_dry_run = not session.has_frame_data('hud')
                     if require_dry_run:
-                        render_frame(dry=True)
+                        frame(dry=True)
 
-            # if invalidated:
-            #     last_frame_dt = time.time() - start_time
+            if paused and not request_render:
+                time.sleep(0.1)
+
+        was_paused = paused
 
     session.save_data()
     request_stop = True
 
 
-def update_playback():
-    global invalidated
-    global play_until, was_paused
-    global elapsed, paused
-
-    if not paused:
-        changed = False
-        while elapsed >= 1 / session.fps:
-            session.f += 1
-            changed = True
-            invalidated = True
-            elapsed -= 1 / session.fps
-    else:
-        changed = False
-
-    if changed:
-        session.load_f()
-        session.load_file()
-
-    frame_exists = session.determine_current_frame_exists()
-    catchedup_end = not frame_exists and not was_paused
-    catchedup = play_until and session.f >= play_until
-    if catchedup_end or catchedup:
-        if looping:
-            pause_seek(loop_start)
-            paused = False
-        else:
-            paused = True
-            play_until = None
-
-    was_paused = paused
-    return changed
-
-
-def sleep_dt():
-    if v.fps:
-        time.sleep(1 / session.fps)
-    else:
-        time.sleep(1 / 24)
-
-
 @trace_decorator
-def render_frame(f=None, scalar=1, s=None, dry=False):
+def frame(f=None, scalar=1, s=None, dry=False):
     global v
     global start_f, n_rendered, session
     global last_frame_prompt, n_rendered
     global invalidated
-    global is_rendering, paused
+    global is_rendering, paused, request_pause
+    global request_render
+
+    # The script has requested the maximum frame length
+    if v.len > 0 and session.f >= v.len - 1:
+        paused = True
+        request_render = None
+        return
+
+    session.dev = is_dev
 
     is_rendering = True
 
@@ -415,46 +348,196 @@ def render_frame(f=None, scalar=1, s=None, dry=False):
     start_f = s.f
     start_img = s.image
     last_frame_failed = not invoke_safe(emit, 'frame', failsleep=0.25)
-    prompt_changed = v.prompt != last_frame_prompt or start_f == 1
-
-    v.hud()
-    hud(p=v.prompt, tcolor=(255, 255, 255) if prompt_changed else (170, 170, 170))
-
-    if not last_frame_failed:
-        last_frame_prompt = v.prompt
-        s.set_frame_data('prompt_changed', prompt_changed)
-        s.set_frame_data('hud', list(hud_rows))
-        s.save_data()
-
-    skip_save = last_frame_failed or dry
-    if skip_save:
+    restore = last_frame_failed or dry
+    if restore:
         # Restore the frame number
         s.seek(start_f)
         s.set(start_img)
         s.disable_jobs = False
     else:
-        s.f = f
-        if enable_saving:
+        prompt_changed = v.prompt != last_frame_prompt or start_f == 1
+
+        v.hud()
+        hud(p=v.prompt, tcolor=(255, 255, 255) if prompt_changed else (170, 170, 170))
+
+        last_frame_prompt = v.prompt
+        s.set_frame_data('prompt_changed', prompt_changed)
+        s.set_frame_data('hud', list(hud_rows))
+
+        if enable_save and not is_dev:
             time.sleep(0.05)
             s.save()
-        s.load_f(f + 1)
+            s.save_data()
 
-        # Save every... features
-        if args.preview_every and n_rendered % args.preview_every == 0:
-            # TODO video preview
-            s.make_video()
-        if args.zip_every and n_rendered % args.zip_every == 0:
-            # TODO zip frames
-            s.make_archive()
-
-        # Flush the HUD
-        if not devmode:
+        if enable_save_hud and not is_dev:
             save_hud(s, draw_hud(s))
 
         n_rendered += 1
+
+        # Handled by update_playback instead to keep framerate in sync with audio
+        if not is_dev:
+            s.load_f(f + 1)
 
     clear_hud()
     is_rendering = False
     invalidated = True
     if last_frame_failed:
-        paused = True
+        request_pause = True
+
+# endregion
+
+# region Internal
+def update_playback():
+    global invalidated
+    global play_until
+    global elapsed, paused
+    global last_frame_time, last_frame_dt
+
+    # Update delta time and elapsed
+    if not paused:
+        if last_frame_time is None:
+            last_frame_time = time.time()
+
+        last_frame_dt = time.time() - last_frame_time
+        last_frame_time = time.time()
+
+        elapsed += last_frame_dt
+    else:
+        last_frame_time = None
+        elapsed = 0
+
+    #  Update TODO
+    if not paused:
+        changed = False
+        while elapsed >= 1 / session.fps:
+            session.f += 1
+            changed = True
+            invalidated = True
+            elapsed -= 1 / session.fps
+    else:
+        changed = False
+
+    if changed:
+        session.load_f()
+        session.load_file()
+
+    frame_exists = session.determine_current_frame_exists()
+    catchedup_end = not frame_exists and not was_paused
+    catchedup = play_until and session.f >= play_until
+    if catchedup_end or catchedup:
+        if looping:
+            seek(loop_start)
+            paused = False
+        else:
+            play_until = None
+            paused = True
+
+    return changed
+
+
+def flush_seeks(changed, seeks):
+    global invalidated
+
+    tmplist.clear()
+    tmplist.extend(seeks)
+    for iseek, manual in tmplist:
+        session.f = iseek
+
+        # Clamping
+        if session.f_first is not None and session.f < session.f_first:
+            session.f = session.f_first
+        if session.f_last is not None and session.f > session.f_last + 1:
+            session.f = session.f_last + 1
+
+        session.load_f()
+        session.load_file()
+        invalidated = changed = True
+        seeks.pop(0)
+        # if manual:  # This is to process each frame even if there is multiple inputs buffered from pygame due to lag
+        #     break
+
+    seeks.clear()
+    return changed
+
+
+def sleep_dt():
+    if v.fps:
+        time.sleep(1 / session.fps)
+    else:
+        time.sleep(1 / 24)
+
+
+# endregion
+
+# region Controller Commands
+def pause(set='toggle'):
+    global request_render, request_pause, play_until, looping
+    looping = False
+    if is_rendering and request_render == 'toggle':
+        request_render = False
+    elif is_rendering and request_render == False:
+        render('toggle')
+    elif session.f >= session.f_last + 1:
+        render('toggle')
+    else:
+        request_pause = not request_pause
+
+    if request_pause:
+        play_until = 0
+
+
+def seek(f_target, manual_input=False, pause=True, clamp=True):
+    global request_pause, looping, invalidated
+    global seeks
+    if is_rendering: return
+
+    if clamp:
+        if session.f_first is not None and f_target < session.f_first:
+            f_target = session.f_first
+        if session.f_last is not None and f_target >= session.f_last + 1:
+            f_target = session.f_last + 1
+
+    seeks.append((f_target, manual_input))
+    request_pause = pause
+    looping = False
+
+    if not pause:
+        print(f'NON-PAUSING SEEK MAY BE BUGGY')
+
+
+def seek_t(t_target, manual_input=False, pause=True):
+    f_target = int(session.fps * t_target)
+    seek(f_target, manual_input, pause)
+
+
+def render(mode):
+    if is_rendering: return
+    global paused
+    global invalidated, request_render, request_pause
+
+    # seek(session.f_last)
+    if session.f < session.f_last + 1:
+        seek(session.f_last + 1, clamp=False)
+    request_pause = True
+    invalidated = True
+    request_render = mode
+
+
+# endregion
+
+def on_audio_playback_start(t):
+    global request_pause
+
+    seek_t(t)
+    request_pause = False
+
+
+def on_audio_playback_stop(t_start, t_end):
+    global request_pause
+
+    seek_t(t_start)
+    request_pause = True
+
+
+audio.on_playback_start.append(on_audio_playback_start)
+audio.on_playback_stop.append(on_audio_playback_stop)
