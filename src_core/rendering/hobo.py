@@ -166,10 +166,14 @@ def pygame_update():
                         renderer.request_pause = True
                         continue
 
-                on_key_down(event, f, f_first, f_last, session)
+                on_keydown_main(event, f, f_first, f_last, session)
 
         elif mode == 'action':
             if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_ESCAPE or event.key == pygame.K_w:
+                    mode = 'main'
+                    continue
+
                 on_keydown_action(actions, event, session)
 
     # Push the image to a pygame surface
@@ -199,9 +203,7 @@ def on_window_focus_lost():
 def on_keydown_action(actions, event, session):
     global mode, action_page
 
-    if event.key == pygame.K_ESCAPE or event.key == pygame.K_w:
-        mode = 'main'
-    elif event.key == pygame.K_LEFT:
+    if event.key == pygame.K_LEFT:
         action_page = max(0, action_page - 10)
     elif event.key == pygame.K_RIGHT:
         action_page += 10
@@ -213,8 +215,12 @@ def on_keydown_action(actions, event, session):
     if 1 <= i <= pygame.K_9:
         name, path = action_slice[i]
         s = f"discore {session.dirpath} {name} "
-        if get_segments():
+
+        if  event.mod & pygame.KMOD_SHIFT:
+            s += f"--frames {session.f }:"
+        elif get_segments():
             s += f"--frames {segments_to_frames()}"
+
         os.popen(s)
         mode = 'main'
 
@@ -229,7 +235,7 @@ def on_window_focus_gained():
     renderer.detect_script_every = -1
 
 
-def on_key_down(event, f, f_first, f_last, session):
+def on_keydown_main(event, f, f_first, f_last, session):
     global current_segment, copied_frame, enable_hud, mode
     if event.key == pygame.K_F1:
         ryusig.toggle()
