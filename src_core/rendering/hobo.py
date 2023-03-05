@@ -157,15 +157,14 @@ def pygame_update():
 
         if mode == 'main':
             if event.type == pygame.DROPFILE:
-                session = on_dropfile(event)
+                on_dropfile(event)
 
             elif event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_ESCAPE:
-                    if renderer.is_rendering:
-                        renderer.request_render = False
-                        renderer.request_pause = True
-                        continue
-
+                # if event.key == pygame.K_ESCAPE:
+                #     if renderer.is_rendering:
+                #         renderer.request_render = False
+                #         renderer.request_pause = True
+                #         continue
                 on_keydown_main(event, f, f_first, f_last, session)
 
         elif mode == 'action':
@@ -241,6 +240,14 @@ def on_keydown_main(event, f, f_first, f_last, session):
         ryusig.toggle()
     if event.key == pygame.K_F2:
         renderer.is_dev = not renderer.is_dev
+
+    if event.key == pygame.K_r and event.mod & pygame.KMOD_SHIFT:
+        s = Session(renderer.session.dirpath)
+        s.f = renderer.session.f
+        s.load_f()
+        s.load_file()
+
+        renderer.update_session(s)
 
     # Playback
     # ----------------------------------------
@@ -337,12 +344,11 @@ def on_dropfile(event):
     session = Session(event.file, fixpad=True)
     session.seek_min()
 
-    renderer.request_pause = True
-    renderer.invalidated = True
-
-    get_segments().clear()
+    # TODO on_session_changed
     if session.w and session.h:
         pygame.display.set_mode((session.w, session.h))
+
+    renderer.update_session(session)
 
     return session
 
@@ -410,7 +416,7 @@ def draw():
             draw_text("-- Busy --", v.w2, top2, color, origin=(0.5, 0.5))
 
         draw_text(f"{renderer.n_rendered} frames", v.w2, top2 + ht, color, origin=(0.5, 0.5))
-        draw_text(f"{renderer.n_rendered / session.fps:.02}s", v.w2, top2 + ht + ht, color, origin=(0.5, 0.5))
+        draw_text(f"{renderer.n_rendered / session.fps:.02f}s", v.w2, top2 + ht + ht, color, origin=(0.5, 0.5))
 
         render_progressbar_y = top2 + ht + ht
 
@@ -447,27 +453,27 @@ def draw():
             pygame.draw.rect(screen, (0, 0, 0), (v.w2 - bw2 - 1, render_progressbar_y + ht + yoff, bw + 2, bh))
             pygame.draw.rect(screen, (0, 255, 255), (v.w2 - bw2, render_progressbar_y + ht + yoff, bw * render_progress, bh))
 
-    # Draw segment bars on top of the progress bar
-    for i, t in enumerate(get_segments()):
-        lo, hi = t
-        progress_lo = lo / f_last
-        progress_hi = hi / f_last
-        color = colors[i % len(colors)]
-        yo = 0
-        if i == current_segment:
-            yo = playback_thickness
-
-        x = w * progress_lo
-        y = segment_offset + yo
-        ww = w * (progress_hi - progress_lo)
-        hh = segment_thickness
-
-        pygame.draw.rect(screen, (0, 0, 0), (x + 1, y + 1, ww, hh))
-        pygame.draw.rect(screen, (0, 0, 0), (x - 1, y + 1, ww, hh))
-        pygame.draw.rect(screen, color, (x, y, ww, hh))
-
-    # Draw a progress bar above the frame number
     if f_last > 0:
+        # Draw segment bars on top of the progress bar
+        for i, t in enumerate(get_segments()):
+            lo, hi = t
+            progress_lo = lo / f_last
+            progress_hi = hi / f_last
+            color = colors[i % len(colors)]
+            yo = 0
+            if i == current_segment:
+                yo = playback_thickness
+
+            x = w * progress_lo
+            y = segment_offset + yo
+            ww = w * (progress_hi - progress_lo)
+            hh = segment_thickness
+
+            pygame.draw.rect(screen, (0, 0, 0), (x + 1, y + 1, ww, hh))
+            pygame.draw.rect(screen, (0, 0, 0), (x - 1, y + 1, ww, hh))
+            pygame.draw.rect(screen, color, (x, y, ww, hh))
+
+        # Draw a progress bar above the frame number
         progress = f / f_last
 
         pygame.draw.rect(screen, (0, 0, 0), (0, 0, w, playback_thickness))

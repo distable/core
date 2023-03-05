@@ -58,14 +58,22 @@ def shlexproc_err(cm):
     proc = shlexproc(cm, stderr=subprocess.STDOUT, stdout=subprocess.PIPE, shell=True)
     return proc.stdout.decode('utf-8')
 
-def invoke_safe(func, *kargs, failsleep=0.0, **kwargs):
+def invoke_safe(func, *kargs, failsleep=0.0, unsafe=False, **kwargs):
     if isinstance(func, list):
         for f in func:
+            if unsafe:
+                f(*kargs, **kwargs)
+                continue
+
             if not invoke_safe(f, *kargs, failsleep=failsleep, **kwargs):
                 return False
 
         return True
     else:
+        if unsafe:
+            func(*kargs, **kwargs)
+            return True
+
         try:
             with trace(f"safe_call({func.__name__ if hasattr(func, '__name__') else func.__class__.__name__})"):
                 func(*kargs, **kwargs)

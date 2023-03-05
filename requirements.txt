@@ -87,3 +87,4 @@ mido~=1.2.10
 pyqtgraph~=0.13.1
 simpleaudio
 librosa
+resampy

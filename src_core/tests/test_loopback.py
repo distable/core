@@ -31,7 +31,7 @@ if __name__ == "__main__":
         comp = core.run('edgecomp')
         chg = lerp(b_chg[1], b_chg[0], comp / base_comp)
         cov = lerp(b_cov[1], b_cov[0], comp / base_comp)
-        kwprint(comp=comp, dist=dist, chg=chg)
+        printkw(comp=comp, dist=dist, chg=chg)
 
         # Run the loopback ---------------------------------------------------------
         core.run('img2img', chg=chg, cfg=7.5)

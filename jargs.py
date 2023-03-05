@@ -33,11 +33,11 @@ argp.add_argument('--preview_command', type=str, default='', help='The default f
 
 # Script Arguments
 argp.add_argument('--fps', type=int, default=30, help='FPS')
-argp.add_argument('--frames', type=str, default=None, help='The frames to render in first:last format')
+argp.add_argument('--frames', '-f', type=str, default=None, help='The frames to render in first:last format')
 argp.add_argument('--w', type=str, default=None, help='The target width.')
 argp.add_argument('--h', type=str, default=None, help='The target height.')
-argp.add_argument('--music', type=str, default=None, help='Music file to play in video export')
-argp.add_argument('--music_start', type=float, default=0, help='Music start time in seconds')
+argp.add_argument('--music', '-mu', type=str, default=None, help='Music file to play in video export')
+argp.add_argument('--music_start', type=float, default=None, help='Music start time in seconds')
 argp.add_argument('--mpv', action='store_true', help='Open the resulting video in MPV.')
 
 # Deployment

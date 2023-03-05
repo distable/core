@@ -6,20 +6,24 @@ from src_core.rendering import renderer
 
 app = None
 
+
 def ryusig_loop(start_visible=False):
     from src_plugins.ryusig_calc.RyusigApp import RyusigApp
     global app
 
     renderer.on_t_changed.append(on_t_selected_renderer)
+    renderer.on_script_loaded.append(on_script_loaded)
 
-    app = RyusigApp(callback_mod=renderer.script,
-              callback_vars=renderer.v,
-              audio=renderer.audio)
+    app = RyusigApp(
+            callback_mod=renderer.script,
+            callback_vars=renderer.v,
+            audio=renderer.audio)
 
     app.on_t_selected.append(on_t_selected_ryusig)
     if not start_visible:
         app.win.hide()
     app.exec()
+
 
 def toggle():
     w = app.win
@@ -28,11 +32,18 @@ def toggle():
     else:
         app.win.show()
 
+
 def on_t_selected_ryusig(t):
     renderer.seek_t(t, False)
 
+
 def on_t_selected_renderer(t):
     app.on_update_playback_t(t)
+
+
+def on_script_loaded():
+    app.request_reload = True
+
 
 def kill_loop():
     import time
@@ -41,6 +52,7 @@ def kill_loop():
         if renderer.request_stop:
             app.quit = True
             break
+
 
 def ryusig_init(start_visible=False):
     threading.Thread(target=ryusig_loop, args=[start_visible]).start()

@@ -1,15 +1,26 @@
 """
 A renderer with a common interface to communicate with.
-Runs a render script.
+The renderer has all the logic you would find in a simple game engine,
+so it keeps track of time and targets for a specific FPS.
 
-The script can have the following functions:
+A 'render script' must be loaded which is a python file which implements a render logic.
+The file is watched for changes and automatically reloaded when it is modified.
+A valid render script has the following functions:
 
-- on_init(v)  (optional)
-- on_frame(v)  (required)
+- def on_callback(v, name)  (required)
 
+Various renderer events can be hooked with this on_callback by checking the name,
+and will always come in this order:
+
+- 'load' is called when the script is loaded for the very first time.
+- 'setup' is called whenever the script is loaded or reloaded.
+
+The render script is universal and can be used for other purpose outside of the renderer
+by simply calling on_callback with a different name.
 
 Devmode:
     - We will not check for script changes every frame.
+
 """
 
 import math
@@ -32,6 +43,8 @@ from src_core.rendering.hud import clear_hud, draw_hud, hud, hud_rows, save_hud
 from src_core.rendering.rendervars import RenderVars
 from src_plugins.ryusig_calc.AudioPlayback import AudioPlayback
 
+unsafe = False
+
 initialized = False
 callbacks = []
 v = RenderVars()
@@ -46,7 +59,8 @@ is_cli = False
 # Parameters (long)
 detect_script_every = -1
 enable_save = True  # Enable saving the frames
-enable_save_hud = False # Enable saving the HUD frames
+enable_save_hud = False  # Enable saving the HUD frames
+auto_populate_hud = False  # Dry runs to get the HUD data when it is missing, can be laggy if the script is not optimized
 
 # Parameters (short)
 paused = False
@@ -77,9 +91,10 @@ elapsed = 0
 # Signals
 on_frame_changed = []
 on_t_changed = []
+on_script_loaded = []
 
 # Temporary
-tmplist = [] # A list for temporary use
+tmplist = []  # A list for temporary use
 
 
 # region Emits
@@ -158,9 +173,17 @@ def load_script(name=None):
 
                 with trace(f'renderer.load_script.importlib.import_module({mpath})'):
                     script = importlib.import_module(mpath, package='imported_renderer_script')
+                    invoke_safe(emit, 'load', unsafe=unsafe)
+                    invoke_safe(emit, 'init', unsafe=unsafe)
             else:
                 importlib.reload(script)
-            # exec(open().read(), globals())
+
+            invoke_safe(emit, 'setup', unsafe=unsafe)
+            invoke_safe(emit, 'prompt', unsafe=unsafe)
+            invoke_safe(emit, 'ready', unsafe=unsafe)
+            invoke_safe(emit, 'eval', unsafe=unsafe)
+
+            invoke_safe(on_script_loaded, unsafe=unsafe)
         if script is not None and oldglobals is not None:
             script.__dict__.update(oldglobals)
 
@@ -183,15 +206,7 @@ def init(s=None, scriptname='', cli=False):
     script_name = scriptname
     with trace('Script loading'):
         from PIL import Image
-        invoke_safe(load_script)
-        detect_script_modified()
-
-        invoke_safe(emit, 'load')
-        invoke_safe(emit, 'init')
-        invoke_safe(emit, 'setup')
-        invoke_safe(emit, 'prompt')
-        invoke_safe(emit, 'ready')
-        invoke_safe(emit, 'eval')
+        invoke_safe(load_script, unsafe=unsafe)
 
         session.width = v.w
         session.height = v.h
@@ -242,12 +257,12 @@ def loop(lo=None, hi=math.inf):
             with trace("renderiter.reload_script_check"):
                 elapsed = time.time() - last_script_check
                 if request_script_check \
-                        or elapsed > detect_script_every and detect_script_every > 0\
+                        or elapsed > detect_script_every and detect_script_every > 0 \
                         or is_cli:
                     request_script_check = False
                     if detect_script_modified():
-                        print(chalk.dim(chalk.magenta("Change detected in scripts, reloading")))
-                        invoke_safe(load_script)
+                        print(chalk.dim(chalk.blue("Change detected in scripts, reloading")))
+                        invoke_safe(load_script, unsafe=unsafe)
                     last_script_check = time.time()
 
             paused = request_pause
@@ -263,9 +278,8 @@ def loop(lo=None, hi=math.inf):
                 changed = flush_seeks(changed, seeks)
 
             if changed:
-                invoke_safe(on_frame_changed, session.f)
-                invoke_safe(on_t_changed, session.t)
-
+                invoke_safe(on_frame_changed, session.f, unsafe=unsafe)
+                invoke_safe(on_t_changed, session.t, unsafe=unsafe)
 
             with trace("renderiter.audio"):
                 if just_unpaused or is_dev and request_render == 'toggle':
@@ -285,7 +299,7 @@ def loop(lo=None, hi=math.inf):
                     with cpuprofile(args.profile):
                         yield session.f
                 elif changed:
-                    require_dry_run = not session.has_frame_data('hud')
+                    require_dry_run = not session.has_frame_data('hud') and session.f_exists and auto_populate_hud
                     if require_dry_run:
                         frame(dry=True)
 
@@ -300,6 +314,17 @@ def loop(lo=None, hi=math.inf):
 
 @trace_decorator
 def frame(f=None, scalar=1, s=None, dry=False):
+    """
+    Render a frame.
+    Args:
+        f:
+        scalar:
+        s:
+        dry:
+
+    Returns:
+
+    """
     global v
     global start_f, n_rendered, session
     global last_frame_prompt, n_rendered
@@ -328,6 +353,7 @@ def frame(f=None, scalar=1, s=None, dry=False):
     # Prepare the rendervars
     if v.w is None: v.w = s.width
     if v.h is None: v.h = s.height
+    v.set_frame_signals()
     v.reset(f, s)
     v.scalar = scalar
 
@@ -347,7 +373,7 @@ def frame(f=None, scalar=1, s=None, dry=False):
     # current_session.f = f
     start_f = s.f
     start_img = s.image
-    last_frame_failed = not invoke_safe(emit, 'frame', failsleep=0.25)
+    last_frame_failed = not invoke_safe(emit, 'frame', failsleep=0.25, unsafe=unsafe)
     restore = last_frame_failed or dry
     if restore:
         # Restore the frame number
@@ -376,6 +402,8 @@ def frame(f=None, scalar=1, s=None, dry=False):
 
         # Handled by update_playback instead to keep framerate in sync with audio
         if not is_dev:
+            if s.f < s.f_first: s.f_first = s.f
+            if s.f > s.f_last: s.f_last = s.f
             s.load_f(f + 1)
 
     clear_hud()
@@ -383,6 +411,7 @@ def frame(f=None, scalar=1, s=None, dry=False):
     invalidated = True
     if last_frame_failed:
         request_pause = True
+
 
 # endregion
 
@@ -440,7 +469,11 @@ def flush_seeks(changed, seeks):
 
     tmplist.clear()
     tmplist.extend(seeks)
-    for iseek, manual in tmplist:
+    for iseek, manual, image_only in tmplist:
+        seeks.pop(0)
+
+        f_prev = session.f
+
         session.f = iseek
 
         # Clamping
@@ -452,7 +485,14 @@ def flush_seeks(changed, seeks):
         session.load_f()
         session.load_file()
         invalidated = changed = True
-        seeks.pop(0)
+
+        img = session.image
+        if image_only:
+            session.f = f_prev
+            session.load_f()
+            session.load_file()
+            session.image = img
+
         # if manual:  # This is to process each frame even if there is multiple inputs buffered from pygame due to lag
         #     break
 
@@ -469,8 +509,18 @@ def sleep_dt():
 
 # endregion
 
-# region Controller Commands
+# region Control Commands
+def update_session(s):
+    global session, request_pause, invalidated
+    session = session
+    request_pause = True
+    invalidated = True
+
+
 def pause(set='toggle'):
+    """
+    Set the pause state.
+    """
     global request_render, request_pause, play_until, looping
     looping = False
     if is_rendering and request_render == 'toggle':
@@ -486,7 +536,11 @@ def pause(set='toggle'):
         play_until = 0
 
 
-def seek(f_target, manual_input=False, pause=True, clamp=True):
+def seek(f_target, manual_input=False, pause=True, clamp=True, image_only=False):
+    """
+    Seek to a frame.
+    Note this is not immediate, it is a request that will be handled as part of the render loop.
+    """
     global request_pause, looping, invalidated
     global seeks
     if is_rendering: return
@@ -497,7 +551,7 @@ def seek(f_target, manual_input=False, pause=True, clamp=True):
         if session.f_last is not None and f_target >= session.f_last + 1:
             f_target = session.f_last + 1
 
-    seeks.append((f_target, manual_input))
+    seeks.append((f_target, manual_input, image_only))
     request_pause = pause
     looping = False
 
@@ -505,26 +559,44 @@ def seek(f_target, manual_input=False, pause=True, clamp=True):
         print(f'NON-PAUSING SEEK MAY BE BUGGY')
 
 
-def seek_t(t_target, manual_input=False, pause=True):
+def seek_t(t_target, manual_user_input=False, pause=True):
+    """
+    Seek to a time in seconds.
+    Note this is not immediate, it is a request that will be handled as part of the render loop.
+    Args:
+        t_target: The time in seconds.
+        manual_user_input: Whether or not this was a manual user input, or done programmatically by some script or internal system.
+        pause: Whether or not to pause after handling the seek.
+    """
     f_target = int(session.fps * t_target)
-    seek(f_target, manual_input, pause)
+    seek(f_target, manual_user_input, pause)
 
 
 def render(mode):
-    if is_rendering: return
+    """
+    Render a frame.
+    Note this is not immediate, it is a request that will be handled as part of the render loop.
+    Args:
+        mode: 'now' or 'toggle'
+    """
     global paused
     global invalidated, request_render, request_pause
 
     # seek(session.f_last)
-    if session.f < session.f_last + 1:
-        seek(session.f_last + 1, clamp=False)
-    request_pause = True
-    invalidated = True
+    if not is_rendering:
+        if session.f < session.f_last + 1:
+            seek(session.f_last + 1, clamp=False)
+            seek(session.f_last, clamp=False, image_only=True)
+        request_pause = True
+        invalidated = True
+        request_render = mode
+
     request_render = mode
 
 
 # endregion
 
+# region Event Hooks
 def on_audio_playback_start(t):
     global request_pause
 
@@ -541,3 +613,4 @@ def on_audio_playback_stop(t_start, t_end):
 
 audio.on_playback_start.append(on_audio_playback_start)
 audio.on_playback_stop.append(on_audio_playback_stop)
+# endregion
