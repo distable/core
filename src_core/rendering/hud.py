@@ -76,5 +76,5 @@ def draw_hud(session):
 
 def save_hud(session, hud):
     save_png(hud,
-             session.determine_current_frame_path('prompt_hud').with_suffix('.png'),
+             session.det_current_frame_path('prompt_hud').with_suffix('.png'),
              with_async=True)

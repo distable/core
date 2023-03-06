@@ -1,3 +1,5 @@
+from PyQt5 import QtCore
+
 import jargs
 from src_core.conf import *
 
@@ -14,7 +16,6 @@ print_gputrace = enable_print
 print_extended_init = enable_print
 print_more2 = enable_print
 print_jobs = enable_print
-
 
 # Plugins
 # ----------------------------------------
@@ -81,9 +82,45 @@ if jargs.args.remote:
     sd.no_half = False
     sd.no_half_vae = False
     sd.batch_cond_uncond = True
-    jargs.args.zip_every = 120
+    # jargs.args.zip_every = 120
 
-# deploy_urls = {}
+# GUI config
+# ----------------------------------------
+
+qkeys = QtCore.Qt.Key
+key_pause = qkeys.Key_Space
+
+key_seek_prev = qkeys.Key_Left
+key_seek_next = qkeys.Key_Right
+key_seek_prev_second = qkeys.Key_Up
+key_seek_next_second = qkeys.Key_Down
+key_seek_prev_percent = qkeys.Key_PageUp
+key_seek_next_percent = qkeys.Key_PageDown
+key_seek_first = qkeys.Key_Home
+key_seek_first_2 = qkeys.Key_H
+key_seek_first_3 = qkeys.Key_0
+key_seek_last = qkeys.Key_N
+key_seek_last_2 = qkeys.Key_End
+
+key_fps_down = qkeys.Key_BracketLeft
+key_fps_up = qkeys.Key_BracketRight
+key_copy_frame = qkeys.Key_C
+key_paste_frame = qkeys.Key_V
+key_delete = qkeys.Key_Delete
+key_render = qkeys.Key_Return
+key_toggle_hud = qkeys.Key_F
+key_toggle_action_mode = qkeys.Key_W
+
+key_select_segment_prev = qkeys.Key_Less
+key_select_segment_next = qkeys.Key_Greater
+key_set_segment_start = qkeys.Key_I
+key_set_segment_end = qkeys.Key_O
+key_seek_prev_segment = qkeys.Key_Comma
+key_seek_next_segment = qkeys.Key_Period
+key_play_segment = qkeys.Key_P
+
+hobo_seek_percent = 1 / 15
+
 
 # # Plugin config
 # # ----------------------------------------
@@ -102,35 +139,35 @@ if jargs.args.remote:
 #                  w=512, h=384,
 #                  chg=0.65)
 
-# wildcards.artist = ['salvador dali', 'picasso', 'mark riddick', 'greg ruktowsky']
-wc.artist = ['Aoshima Chiho', 'Arnegger Alois', 'shimoda hikari', 'terry redlin', 'Satoshi Kon', "hayao mizaki", 'rj palmer', 'alex grey', 'salvador dali']
-wc.scene = ['realms', 'skies', 'planetary sky']
-wc.distance = ['far away', 'in the distance', 'in the horizon']
-wc.painted = ['painted', 'drawn', ' inked', 'designed']
-wc.cloud = ['stratocumulus', 'altocumulus', 'cumulus', 'nimbostratus', 'cirrocumulus']
-wc.glow = ['shining', 'glowing', 'radiating', 'exploding']
-wc.blob = ['sun', 'moon', 'face', 'sunset', 'sunrise']
-wc.movement = ['surrealism', 'hyperrealism', 'eccentrism']
-wc.majestic = ['scenec', 'majestic', 'grandiose', 'picturesque', 'jawdropping']
-wc.scale = ['huge', 'big', 'wide', 'scenic', 'large', 'impressive', 'grandiose', 'stunning', 'picturesque']
-wc.cursed = ['cursed', 'twisted', 'contorted', 'strange', 'weird', 'rippled']
-wc.contort = ['contorted', 'twisted', 'bending', 'uneven', 'chaotic']
-wc.magic = ['magical', 'cursed', 'fantasy', 'mystical', 'enchanted']
-wc.elaborate = ['elaborate', 'complex', 'detailed']
-wc.view = ['shot', 'view']
-wc.detail = ['complex', 'intricate', 'detailed']
-wc.relate = ['rotating', 'sliding', 'moving', 'exploding', 'displacing', 'changing', 'transfmorphing', 'exchanging', 'expanding', 'stretching', 'condensing', 'tiling', 'alternating', 'juxtaposing', 'overlapping']
-wc.pow = ['slightly', 'super', 'very', 'greatly', 'ultra', 'extremely', 'intensely']
-wc._ = ["    ", "   ", "  ", " "]
-
-wc.energy = ['light', 'energy', 'glow', 'radiant']
-wc.shard = ["mirror", "gemstone", "diamond", 'ornate', "crystallite", "ice", "rock", "glass", "crystal", 'stained-glass', "quartz"]
-wc.coral = ["oceanic", "intricate", "brain", "colorful reef", "magical cursed reef"]
-wc.wavy = ["wavy", "zig-zaggy", "stretchy", "droopy", "twisty", "contorted wavy", "marbling", "cursed", "coral", 'uneven', 'deformed']
-wc.wave_t = ["huge", "separating", "ultra", "", "contorted"]
-wc.shape = ["tornado", "helix", "galaxy"]
-wc.texture = ["floral", "florally", "floraling", "inflorescent", "flowery"]
-wc.adjective = ['intricate', 'detailed', 'beautiful', 'picturesque', 'immense', 'sunny', 'rainy', "melting", "iridescent", "opalescent", "magical"]
-wc.related = ['', 'separating', 'repeating', 'alternating', 'overlapping']
-wc.tex_layout = ['asymmetric tiling', 'symmetric tiling', 'symmetric', 'asymmetric', 'tiling']
-wc.tex_shape = ['zig-zaggy', 'spiraling', 'contorting', 'stretching', "flower petal", "sunny", "coral", "crystalline water macro"]
+# # wildcards.artist = ['salvador dali', 'picasso', 'mark riddick', 'greg ruktowsky']
+# wc.artist = ['Aoshima Chiho', 'Arnegger Alois', 'shimoda hikari', 'terry redlin', 'Satoshi Kon', "hayao mizaki", 'rj palmer', 'alex grey', 'salvador dali']
+# wc.scene = ['realms', 'skies', 'planetary sky']
+# wc.distance = ['far away', 'in the distance', 'in the horizon']
+# wc.painted = ['painted', 'drawn', ' inked', 'designed']
+# wc.cloud = ['stratocumulus', 'altocumulus', 'cumulus', 'nimbostratus', 'cirrocumulus']
+# wc.glow = ['shining', 'glowing', 'radiating', 'exploding']
+# wc.blob = ['sun', 'moon', 'face', 'sunset', 'sunrise']
+# wc.movement = ['surrealism', 'hyperrealism', 'eccentrism']
+# wc.majestic = ['scenec', 'majestic', 'grandiose', 'picturesque', 'jawdropping']
+# wc.scale = ['huge', 'big', 'wide', 'scenic', 'large', 'impressive', 'grandiose', 'stunning', 'picturesque']
+# wc.cursed = ['cursed', 'twisted', 'contorted', 'strange', 'weird', 'rippled']
+# wc.contort = ['contorted', 'twisted', 'bending', 'uneven', 'chaotic']
+# wc.magic = ['magical', 'cursed', 'fantasy', 'mystical', 'enchanted']
+# wc.elaborate = ['elaborate', 'complex', 'detailed']
+# wc.view = ['shot', 'view']
+# wc.detail = ['complex', 'intricate', 'detailed']
+# wc.relate = ['rotating', 'sliding', 'moving', 'exploding', 'displacing', 'changing', 'transfmorphing', 'exchanging', 'expanding', 'stretching', 'condensing', 'tiling', 'alternating', 'juxtaposing', 'overlapping']
+# wc.pow = ['slightly', 'super', 'very', 'greatly', 'ultra', 'extremely', 'intensely']
+# wc._ = ["    ", "   ", "  ", " "]
+#
+# wc.energy = ['light', 'energy', 'glow', 'radiant']
+# wc.shard = ["mirror", "gemstone", "diamond", 'ornate', "crystallite", "ice", "rock", "glass", "crystal", 'stained-glass', "quartz"]
+# wc.coral = ["oceanic", "intricate", "brain", "colorful reef", "magical cursed reef"]
+# wc.wavy = ["wavy", "zig-zaggy", "stretchy", "droopy", "twisty", "contorted wavy", "marbling", "cursed", "coral", 'uneven', 'deformed']
+# wc.wave_t = ["huge", "separating", "ultra", "", "contorted"]
+# wc.shape = ["tornado", "helix", "galaxy"]
+# wc.texture = ["floral", "florally", "floraling", "inflorescent", "flowery"]
+# wc.adjective = ['intricate', 'detailed', 'beautiful', 'picturesque', 'immense', 'sunny', 'rainy', "melting", "iridescent", "opalescent", "magical"]
+# wc.related = ['', 'separating', 'repeating', 'alternating', 'overlapping']
+# wc.tex_layout = ['asymmetric tiling', 'symmetric tiling', 'symmetric', 'asymmetric', 'tiling']
+# wc.tex_shape = ['zig-zaggy', 'spiraling', 'contorting', 'stretching', "flower petal", "sunny", "coral", "crystalline water macro"]

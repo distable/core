@@ -126,15 +126,19 @@ class RenderVars(SessionVars):
         v.tr = v.t * v.ref
 
     def set(self, **kwargs):
-        for k, v in kwargs.items():
-            self.__dict__[k] = v
+        protected_names = ['session', 'signals', 't', 'f', 'dt', 'ref', 'tr', 'w2', 'h2', 'len']
+        for name, v in kwargs.items():
+            self.__dict__[name] = v
             if isinstance(v, ndarray):
-                # print(f"SET {k} {v}")
+                if name in protected_names:
+                    print(f"set_frame_signals: {name} is protected and cannot be set as a signal. Skipping...")
+                    continue
+
+                # print(f"SET {name} {v}")
                 self.signals[k] = v
                 self.__dict__[f'{k}s'] = v
 
     def set_frame_signals(self):
-        protected_names = ['session', 'signals', 't', 'f', 'dt', 'ref', 'tr', 'w2', 'h2', 'len']
         dic = self.__dict__.copy()
         for name, value in dic.items():
             # if isinstance(value, ndarray):
@@ -143,10 +147,6 @@ class RenderVars(SessionVars):
             if name in self.signals:
                 signal = self.signals[name]
                 try:
-                    if name in protected_names:
-                        print(f"set_frame_signals: {name} is protected and cannot be set as a signal. Skipping...")
-                        continue
-
                     self.__dict__[name] = signal[self.f]
                     self.__dict__[f'{name}s'] = signal
                 except IndexError:

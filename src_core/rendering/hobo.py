@@ -1,366 +1,162 @@
-import os
+"""
+This is DreamStudio hobo!
+A fun retro crappy PyGame interface to do
+you work in.
+"""
+
 import subprocess
-import threading
 
 import numpy as np
 import pygame
 from PIL import Image
+from PyQt5 import QtCore, QtGui
+from PyQt5.QtWidgets import *
+from pyqtgraph import *
+import pyqtgraph as pg
 from skimage.util import random_noise
 
-from src_core.rendering import ryusig
-from src_core.lib import corelib
-from src_core.rendering import renderer
+import user_conf
 from src_core.classes import paths
 from src_core.classes.printlib import trace_decorator
 from src_core.classes.Session import Session
+from src_core.lib import corelib
+from src_core.rendering import renderer, ryusig
+from src_plugins.ryusig_calc.QtUtils import get_keypress_args
 
 enable_hud = False
+key_mode = 'main'
 fps_stops = [1, 4, 6, 8, 10, 12, 24, 30, 50, 60]
 
-screen = None
-clock = None
-font = None
-
-actions = []
-f_pygame = 0
+discovered_actions = []
+f_pulse = 0
 f_displayed = None
-mode = 'main'
+
 action_page = 0
 last_vram_reported = 0
-pilsurface = None
 
+surface = None
+font = None
 copied_frame = 0
 current_segment = -1
 invalidated = True
 colors = corelib.generate_colors(8, v=1, s=0.765)
 
 
-def segments_to_frames():
-    # example:
-    # return '30:88,100:200,3323:4000'
+class ImageWidget(QWidget):
+    def __init__(self, surf, parent=None):
+        super(ImageWidget, self).__init__(parent)
+        self.surface = surf
+        self.image = None
+        self.update_image()
 
-    return '-'.join([f'{s[0]}:{s[1]}' for s in get_segments()])
+    def update_image(self):
+        data = self.surface.get_buffer().raw
+        w = self.surface.get_width()
+        h = self.surface.get_height()
+        self.image = QtGui.QImage(data, w, h, QtGui.QImage.Format_RGB32)
+
+    def paintEvent(self, event):
+        # Update the image data without creating a new QImage
+        self.update_image()
+
+        # Paint the image
+        qp = QtGui.QPainter()
+        qp.begin(self)
+        qp.drawImage(0, 0, self.image)
+        qp.end()
 
 
-def get_segments():
-    dat = renderer.session.data
-    if not 'segments' in dat:
-        dat['segments'] = []
+class HoboWindow(QMainWindow):
+    def __init__(self, surf, parent=None):
+        super(HoboWindow, self).__init__(parent)
+        self.setCentralWidget(ImageWidget(surf))
 
-    return dat['segments']
+        self.timer = QtCore.QTimer()
+        self.timer.timeout.connect(self.on_timer_timeout)
+        self.timer.start(int(1000 / 60))
+        self.timeout_handlers = []
+        self.key_handlers = []
+        self.dropenter_handlers = []
+        self.dropleave_handlers = []
+        self.dropfile_handlers = []
+        self.focusgain_handlers = []
+        self.focuslose_handlers = []
+
+    def on_timer_timeout(self):
+        for hnd in self.timeout_handlers:
+            hnd()
+        self.update()
+        self.centralWidget().repaint()
+
+    def keyPressEvent(self, event):
+        for hnd in self.key_handlers:
+            hnd(*get_keypress_args(event))
+
+    def dropEvent(self, event):
+        for hnd in self.dropfile_handlers:
+            hnd(event.mimeData().urls())
+
+    def dragEnterEvent(self, event):
+        for hnd in self.dropenter_handlers:
+            hnd(event.mimeData().urls())
+
+    def dragLeaveEvent(self, event):
+        for hnd in self.dropleave_handlers:
+            hnd(event.mimeData().urls())
+
+    def focusInEvent(self, event):
+        for hnd in self.focusgain_handlers:
+            hnd()
+
+    def focusOutEvent(self, event):
+        for hnd in self.focuslose_handlers:
+            hnd()
 
 
-@trace_decorator
 def init():
-    threading.Thread(target=loop).start()
-
-
-def create_segment(off):
-    global current_segment
-    get_segments().append((renderer.session.f, renderer.session.f + off))
-    current_segment = len(get_segments()) - 1
-    renderer.session.save_data()
-
-
-def get_fps_stop(current, offset):
-    stops = fps_stops
-    pairs = list(zip(stops, stops[1:]))
-
-    idx = stops.index(current)
-    if idx >= 0:
-        idx = max(0, min(idx + offset, len(stops) - 1))
-        return stops[idx]
-
-    for i, p in enumerate(pairs):
-        a, b = p
-        if a <= current <= b:
-            return a if offset < 0 else b
-
-    return current
-
-
-def upfont(param):
-    global font, fontsize
-    fontsize += param
-    font = pygame.font.Font((paths.plug_res / 'vt323.ttf').as_posix(), fontsize)
-
-
-def loop():
     global enable_hud
-    global screen, clock, font
-    global actions
+    global font
+    global discovered_actions
+    global surface
 
+    discovered_actions = list(paths.iter_scripts())
     session = renderer.session
 
+    # Setup pygame renderer
     pygame.init()
-    clock = pygame.time.Clock()
-    icon = pygame.image.load(paths.root / 'icon.png')
-    pygame.display.set_icon(icon)
-
-    screen = pygame.display.set_mode((session.w, session.h))
-    pygame.display.set_caption("DreamStudio Hobo")
-    pygame.key.set_repeat(175, 50)
-
-    actions = list(paths.iter_scripts())
+    surface = pygame.Surface((session.w, session.h))
+    surface.fill((255, 0, 255))
     fontsize = 15
     font = pygame.font.Font((paths.plug_res / 'vt323.ttf').as_posix(), fontsize)
 
-    while not renderer.request_stop:
-        try:
-            pygame_update()
-            clock.tick(renderer.session.fps)
-        except InterruptedError:
-            pygame.quit()
-            return
-        except Exception:
-            import traceback
-            traceback.print_exc()
-
 
 @trace_decorator
-def pygame_update():
+def update():
     global enable_hud
     global current_segment
     global copied_frame
-    global mode, action_page, actions
-    global f_displayed, pilsurface, last_vram_reported
-    global f_pygame
+    global action_page, discovered_actions
+    global f_displayed, last_vram_reported
+    global f_pulse
+    global surface
 
-    session = renderer.session
-    v = renderer.v
-    w = session.w
-    h = session.h
-
-    f_last = session.f_last
-    f_first = session.f_first
-    f = session.f
-
-    if f_pygame % 60 == 0:
+    if f_pulse % 60 == 0:
         # Update VRAM using nvidia-smi
         last_vram_reported = subprocess.check_output(['nvidia-smi', '--query-gpu=memory.used', '--format=csv,noheader,nounits']).decode('utf-8').strip()
         last_vram_reported = int(last_vram_reported)
 
-    # pygame.display.update()
-
-    for event in pygame.event.get():
-        if event.type == pygame.QUIT:
-            on_quit()
-            return
-
-        elif event.type == pygame.WINDOWFOCUSGAINED:
-            on_window_focus_gained()
-            continue
-
-        elif event.type == pygame.WINDOWFOCUSLOST:
-            on_window_focus_lost()
-            continue
-
-        if mode == 'main':
-            if event.type == pygame.DROPFILE:
-                on_dropfile(event)
-
-            elif event.type == pygame.KEYDOWN:
-                # if event.key == pygame.K_ESCAPE:
-                #     if renderer.is_rendering:
-                #         renderer.request_render = False
-                #         renderer.request_pause = True
-                #         continue
-                on_keydown_main(event, f, f_first, f_last, session)
-
-        elif mode == 'action':
-            if event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_ESCAPE or event.key == pygame.K_w:
-                    mode = 'main'
-                    continue
-
-                on_keydown_action(actions, event, session)
-
-    # Push the image to a pygame surface
-    changed = renderer.invalidated
-    if changed or f_displayed != f or renderer.is_rendering:
-        # New frame
-        im = session.image_cv2
-        if im is None:
-            im = np.zeros((session.h, session.w, 3), dtype=np.uint8)
-
-        im = np.swapaxes(im, 0, 1)  # cv2 loads in h,w,c order, but pygame wants w,h,c
-        pilsurface = pygame.surfarray.make_surface(im)
-        # pilsurface = pygame.image.fromstring(pil.tobytes(), pil.size, pil.mode)
-
-        renderer.invalidated = False
-        f_displayed = f
-
-        # dt += acc
-
     draw()
-
-
-def on_window_focus_lost():
-    renderer.detect_script_every = 1
-
-
-def on_keydown_action(actions, event, session):
-    global mode, action_page
-
-    if event.key == pygame.K_LEFT:
-        action_page = max(0, action_page - 10)
-    elif event.key == pygame.K_RIGHT:
-        action_page += 10
-        max_page = len(actions) // 10
-        action_page = min(action_page, max_page)
-
-    i = event.key - pygame.K_1
-    action_slice = actions[action_page:action_page + 10]
-    if 1 <= i <= pygame.K_9:
-        name, path = action_slice[i]
-        s = f"discore {session.dirpath} {name} "
-
-        if  event.mod & pygame.KMOD_SHIFT:
-            s += f"--frames {session.f }:"
-        elif get_segments():
-            s += f"--frames {segments_to_frames()}"
-
-        os.popen(s)
-        mode = 'main'
-
-
-def on_quit():
-    pygame.quit()
-    renderer.request_stop = True
-
-
-def on_window_focus_gained():
-    renderer.request_script_check = True
-    renderer.detect_script_every = -1
-
-
-def on_keydown_main(event, f, f_first, f_last, session):
-    global current_segment, copied_frame, enable_hud, mode
-    if event.key == pygame.K_F1:
-        ryusig.toggle()
-    if event.key == pygame.K_F2:
-        renderer.is_dev = not renderer.is_dev
-
-    if event.key == pygame.K_r and event.mod & pygame.KMOD_SHIFT:
-        s = Session(renderer.session.dirpath)
-        s.f = renderer.session.f
-        s.load_f()
-        s.load_file()
-
-        renderer.update_session(s)
-
-    # Playback
-    # ----------------------------------------
-    if event.key == pygame.K_SPACE:
-        renderer.pause()
-    if event.key == pygame.K_LEFT: renderer.seek(f - 1, True)
-    if event.key == pygame.K_RIGHT: renderer.seek(f + 1, True)
-    if event.key == pygame.K_UP: renderer.seek(f - session.fps, True)
-    if event.key == pygame.K_DOWN: renderer.seek(f + session.fps, True)
-    if event.key == pygame.K_PAGEUP: renderer.seek(f - f_last // 15, True)
-    if event.key == pygame.K_PAGEDOWN: renderer.seek(f + f_last // 15, True)
-    if event.key == pygame.K_HOME: renderer.seek(f_first, True)
-    if event.key == pygame.K_h: renderer.seek(f_first, True)
-    if event.key == pygame.K_0: renderer.seek(f_first, True)
-    if event.key == pygame.K_n or event.key == pygame.K_END:
-        renderer.seek(f_last, True)
-        renderer.seek(f_last + 1, True)
-
-    # Editing
-    # ----------------------------------------
-    if event.key == pygame.K_LEFTBRACKET:
-        session.fps = get_fps_stop(session.fps, -1)
-    if event.key == pygame.K_RIGHTBRACKET:
-        session.fps = get_fps_stop(session.fps, 1)
-    if event.key == pygame.K_LESS and len(get_segments()):
-        current_segment = max(0, current_segment - 1)
-        renderer.seek(get_segments()[current_segment][0])
-    if event.key == pygame.K_c:
-        copied_frame = session.image_cv2
-    if event.key == pygame.K_v:
-        if copied_frame is not None:
-            session.image_cv2 = copied_frame
-            session.save()
-            session.save_data()
-            renderer.invalidated = True
-    if event.key == pygame.K_DELETE and event.mod & pygame.KMOD_SHIFT:
-        if session.delete_f():
-            renderer.invalidated = True
-
-    # Rendering
-    # ----------------------------------------
-    if event.key == pygame.K_RETURN:
-        if renderer.is_rendering and renderer.request_render:
-            renderer.request_render = False
-        elif renderer.is_rendering and not renderer.request_render:
-            renderer.render('toggle')
-        else:
-            renderer.render('now')
-    if event.key == pygame.K_f:
-        enable_hud = not enable_hud
-    if event.key == pygame.K_i:
-        if len(get_segments()) and not f > get_segments()[current_segment][1]:
-            get_segments()[current_segment] = (f, get_segments()[current_segment][1])
-            session.save_data()
-        else:
-            create_segment(50)
-    if event.key == pygame.K_o:
-        if len(get_segments()) and not f < get_segments()[current_segment][0]:
-            get_segments()[current_segment] = (get_segments()[current_segment][0], f)
-            session.save_data()
-        else:
-            create_segment(-50)
-    if event.key == pygame.K_COMMA:
-        indices = [i for s in get_segments() for i in s]
-        indices.sort()
-        # Find next value in indices that is less than session.f
-        for i in range(len(indices) - 1, -1, -1):
-            if indices[i] < f:
-                renderer.seek(indices[i])
-                break
-    if event.key == pygame.K_PERIOD:
-        indices = [i for s in get_segments() for i in s]
-        indices.sort()
-        # Find next value in indices that is greater than session.f
-        for i in range(len(indices)):
-            if indices[i] > f:
-                renderer.seek(indices[i])
-                break
-    if event.key == pygame.K_GREATER and len(get_segments()):
-        current_segment = min(len(get_segments()) - 1, current_segment + 1)
-        renderer.seek(get_segments()[current_segment][0])
-    if event.key == pygame.K_p:
-        lo, hi = get_segments()[current_segment]
-        session.seek(lo)
-        renderer.play_until = hi
-        renderer.request_pause = False
-        renderer.looping = True
-        renderer.looping_start = lo
-    if event.key == pygame.K_w:
-        mode = 'action'
-
-
-def on_dropfile(event):
-    session = Session(event.file, fixpad=True)
-    session.seek_min()
-
-    # TODO on_session_changed
-    if session.w and session.h:
-        pygame.display.set_mode((session.w, session.h))
-
-    renderer.update_session(session)
-
-    return session
 
 
 @trace_decorator
 def draw():
-    global f_pygame
+    global f_pulse
     global enable_hud
     global current_segment
     global copied_frame
-    global mode, action_page, actions
+    global action_page, discovered_actions
     global f_displayed, pilsurface, last_vram_reported
+    global frame_surface
 
     session = renderer.session
     v = renderer.v
@@ -370,11 +166,6 @@ def draw():
     f_last = session.f_last
     f_first = session.f_first
     f = session.f
-
-    if pilsurface is not None:
-        surface = pilsurface
-        surface = modify_surface(surface)
-        screen.blit(surface, (0, 0))
 
     fps = 1 / max(renderer.last_frame_dt, 1 / session.fps)
     pad = 12
@@ -385,6 +176,24 @@ def draw():
     playback_color = (255, 255, 255)
     if renderer.request_pause:
         playback_color = (0, 255, 255)
+
+    # BASE
+    # ----------------------------------------
+    surface.fill((0, 0, 0))
+
+    changed = renderer.invalidated
+    if changed or f_displayed != f or renderer.is_rendering:
+        # New frame
+        im = session.image_cv2
+        if im is None:
+            im = np.zeros((session.h, session.w, 3), dtype=np.uint8)
+        im = np.swapaxes(im, 0, 1)  # cv2 loads in h,w,c order, but pygame wants w,h,c
+
+        frame_surface = pygame.surfarray.make_surface(im)
+        renderer.invalidated = False
+        f_displayed = f
+
+    surface.blit(frame_surface, (0, 0))
 
     # UPPER LEFT
     # ----------------------------------------
@@ -440,7 +249,7 @@ def draw():
     playback_thickness = 3
     segment_thickness = 3
     segment_offset = 2
-    pygame.draw.rect(screen, (0, 0, 0), (0, 0, w, playback_thickness + 2))
+    pygame.draw.rect(surface, (0, 0, 0), (0, 0, w, playback_thickness + 2))
     # Draw a tiny bar under the rendering text
     if renderer.is_rendering and len(session.jobs):
         render_steps = session.jobs[-1].progress_max
@@ -450,8 +259,8 @@ def draw():
             bw2 = bw / 2
             bh = 3
             yoff = -2
-            pygame.draw.rect(screen, (0, 0, 0), (v.w2 - bw2 - 1, render_progressbar_y + ht + yoff, bw + 2, bh))
-            pygame.draw.rect(screen, (0, 255, 255), (v.w2 - bw2, render_progressbar_y + ht + yoff, bw * render_progress, bh))
+            pygame.draw.rect(surface, (0, 0, 0), (v.w2 - bw2 - 1, render_progressbar_y + ht + yoff, bw + 2, bh))
+            pygame.draw.rect(surface, (0, 255, 255), (v.w2 - bw2, render_progressbar_y + ht + yoff, bw * render_progress, bh))
 
     if f_last > 0:
         # Draw segment bars on top of the progress bar
@@ -469,15 +278,15 @@ def draw():
             ww = w * (progress_hi - progress_lo)
             hh = segment_thickness
 
-            pygame.draw.rect(screen, (0, 0, 0), (x + 1, y + 1, ww, hh))
-            pygame.draw.rect(screen, (0, 0, 0), (x - 1, y + 1, ww, hh))
-            pygame.draw.rect(screen, color, (x, y, ww, hh))
+            pygame.draw.rect(surface, (0, 0, 0), (x + 1, y + 1, ww, hh))
+            pygame.draw.rect(surface, (0, 0, 0), (x - 1, y + 1, ww, hh))
+            pygame.draw.rect(surface, color, (x, y, ww, hh))
 
         # Draw a progress bar above the frame number
         progress = f / f_last
 
-        pygame.draw.rect(screen, (0, 0, 0), (0, 0, w, playback_thickness))
-        pygame.draw.rect(screen, (255, 255, 255) if not renderer.request_pause else (0, 255, 255), (0, 0, w * progress, playback_thickness))
+        pygame.draw.rect(surface, (0, 0, 0), (0, 0, w, playback_thickness))
+        pygame.draw.rect(surface, (255, 255, 255) if not renderer.request_pause else (0, 255, 255), (0, 0, w * progress, playback_thickness))
 
         # Draw ticks
         major_ticks = 60 * session.fps
@@ -498,8 +307,8 @@ def draw():
                 height = major_tick_height
                 color = major_tick_color
 
-            pygame.draw.line(screen, color, (x, y), (x, y + height))
-            pygame.draw.line(screen, color, (x + 1, y), (x + 1, y + height))
+            pygame.draw.line(surface, color, (x, y), (x, y + height))
+            pygame.draw.line(surface, color, (x + 1, y), (x + 1, y + height))
             x += minor_ticks * ppf
 
     if renderer.is_rendering:
@@ -510,7 +319,7 @@ def draw():
         lagindicator = np.stack([lagindicator, lagindicator, lagindicator], axis=2)
         lagindicator_pil = Image.fromarray(lagindicator)
         lagindicator_surface = pygame.image.frombuffer(lagindicator_pil.tobytes(), lagindicator_pil.size, 'RGB')
-        screen.blit(lagindicator_surface, (w - 8 - 2, h - 8 - 2))
+        surface.blit(lagindicator_surface, (w - 8 - 2, h - 8 - 2))
     ht = font.size("a")[1]
 
     if enable_hud:
@@ -526,8 +335,8 @@ def draw():
                     draw_text(frag, x, y, color)
                     y += ht
 
-    if mode == 'action':
-        action_slice = actions[action_page:action_page + 9]
+    if key_mode == 'action':
+        action_slice = discovered_actions[action_page:action_page + 9]
         x = pad
         y = ht * base_ul_offset
         for i, pair in enumerate(action_slice):
@@ -536,9 +345,234 @@ def draw():
             draw_text(f'({i + 1}) {name}', x, y, color)
             y += ht
 
-    pygame.display.flip()
+    f_pulse += 1
 
-    f_pygame += 1
+
+def keydown(key, ctrl, shift, alt):
+    global key_mode
+
+    qkeys = QtCore.Qt.Key
+
+    if key_mode == 'main':
+        keydown_main(key, ctrl, shift, alt)
+    elif key_mode == 'action':
+        if key == qkeys.Key_Escape or key == qkeys.Key_W:
+            key_mode = 'main'
+        else:
+            keydown_action(key, ctrl, shift, alt)
+
+
+def keydown_action(key, ctrl, shift, alt):
+    global key_mode, action_page
+
+    qkeys = QtCore.Qt.Key
+    session = renderer.session
+
+    if key == qkeys.Key_Left:
+        action_page = max(0, action_page - 10)
+    elif key == qkeys.Key_Right:
+        max_page = len(discovered_actions) // 10
+        action_page += 10
+        action_page = min(action_page, max_page)
+
+    i = key - qkeys.Key_1
+    if i in range(1, 9):
+        action_slice = discovered_actions[action_page:action_page + 10]
+        if 1 <= i <= qkeys.Key_9:
+            name, path = action_slice[i]
+            s = f"discore {session.dirpath} {name} "
+
+            if shift:
+                s += f"--frames {segments_to_frames()}"
+
+            os.popen(s)
+            key_mode = 'main'
+
+def keydown_main(key, ctrl, shift, alt):
+    global current_segment, copied_frame, enable_hud, key_mode
+
+    qkeys = QtCore.Qt.Key
+    session = renderer.session
+    v = renderer.v
+    w = session.w
+    h = session.h
+
+    f_last = session.f_last
+    f_first = session.f_first
+    f = session.f
+
+    if key == qkeys.Key_F1:
+        ryusig.toggle()
+    if key == qkeys.Key_F2:
+        renderer.is_dev = not renderer.is_dev
+
+    if key == qkeys.Key_R and shift:
+        s = Session(renderer.session.dirpath)
+        s.f = renderer.session.f
+        s.load_f()
+        s.load_file()
+
+        renderer.update_session(s)
+
+    # Playback
+    # ----------------------------------------
+    if key == user_conf.key_pause: renderer.pause()
+    if key == user_conf.key_seek_prev: renderer.seek(f - 1, True)
+    if key == user_conf.key_seek_next: renderer.seek(f + 1, True)
+    if key == user_conf.key_seek_prev_second: renderer.seek(f - session.fps, True)
+    if key == user_conf.key_seek_next_second: renderer.seek(f + session.fps, True)
+    if key == user_conf.key_seek_prev_percent: renderer.seek(f - int(f_last * user_conf.hobo_seek_percent), True)
+    if key == user_conf.key_seek_next_percent: renderer.seek(f + int(f_last * user_conf.hobo_seek_percent), True)
+    if key == user_conf.key_seek_first: renderer.seek(f_first, True)
+    if key == user_conf.key_seek_first_2: renderer.seek(f_first, True)
+    if key == user_conf.key_seek_first_3: renderer.seek(f_first, True)
+    if key == user_conf.key_seek_last or key == user_conf.key_seek_last_2:
+        renderer.seek(f_last, True)
+        renderer.seek(f_last + 1, True)
+
+    # Editing
+    # ----------------------------------------
+    if key == user_conf.key_fps_down:
+        session.fps = get_fps_stop(session.fps, -1)
+    if key == user_conf.key_fps_up:
+        session.fps = get_fps_stop(session.fps, 1)
+    if key == user_conf.key_select_segment_prev and len(get_segments()):
+        current_segment = max(0, current_segment - 1)
+        renderer.seek(get_segments()[current_segment][0])
+    if key == user_conf.key_copy_frame:
+        copied_frame = session.image_cv2
+    if key == user_conf.key_paste_frame:
+        if copied_frame is not None:
+            session.image_cv2 = copied_frame
+            session.save()
+            session.save_data()
+            renderer.invalidated = True
+    if key == user_conf.key_delete and shift:
+        if session.delete_f():
+            renderer.invalidated = True
+
+    # Rendering
+    # ----------------------------------------
+    if key == user_conf.key_render:
+        if renderer.is_rendering and renderer.request_render:
+            renderer.request_render = False
+        elif renderer.is_rendering and not renderer.request_render:
+            renderer.render('toggle')
+        else:
+            renderer.render('now')
+    if key == user_conf.key_toggle_hud:
+        enable_hud = not enable_hud
+    if key == user_conf.key_set_segment_start:
+        if len(get_segments()) and not f > get_segments()[current_segment][1]:
+            get_segments()[current_segment] = (f, get_segments()[current_segment][1])
+            session.save_data()
+        else:
+            create_segment(50)
+    if key == user_conf.key_set_segment_end:
+        if len(get_segments()) and not f < get_segments()[current_segment][0]:
+            get_segments()[current_segment] = (get_segments()[current_segment][0], f)
+            session.save_data()
+        else:
+            create_segment(-50)
+    if key == user_conf.key_seek_prev_segment:
+        indices = [i for s in get_segments() for i in s]
+        indices.sort()
+        # Find next value in indices that is less than session.f
+        for i in range(len(indices) - 1, -1, -1):
+            if indices[i] < f:
+                renderer.seek(indices[i])
+                break
+    if key == user_conf.key_seek_next_segment:
+        indices = [i for s in get_segments() for i in s]
+        indices.sort()
+        # Find next value in indices that is greater than session.f
+        for i in range(len(indices)):
+            if indices[i] > f:
+                renderer.seek(indices[i])
+                break
+    if key == user_conf.key_select_segment_next and len(get_segments()):
+        current_segment = min(len(get_segments()) - 1, current_segment + 1)
+        renderer.seek(get_segments()[current_segment][0])
+    if key == user_conf.key_play_segment:
+        lo, hi = get_segments()[current_segment]
+        session.seek(lo)
+        renderer.play_until = hi
+        renderer.request_pause = False
+        renderer.looping = True
+        renderer.looping_start = lo
+    if key == user_conf.key_toggle_action_mode:
+        key_mode = 'action'
+
+
+def focuslose():
+    renderer.detect_script_every = 1
+
+
+def focusgain():
+    renderer.request_script_check = True
+    renderer.detect_script_every = -1
+
+
+def dropenter(file):
+    pass
+
+
+def dropleave(file):
+    print('dropleave', file)
+    pass
+
+
+def dropfile(file):
+    print('dropfile', file)
+    session = Session(file, fixpad=True)
+    session.seek_min()
+
+    # TODO on_session_changed
+    if session.w and session.h:
+        pygame.display.set_mode((session.w, session.h))
+
+    renderer.update_session(session)
+    return session
+
+
+# region API
+def segments_to_frames():
+    # example:
+    # return '30:88,100:200,3323:4000'
+
+    return '-'.join([f'{s[0]}:{s[1]}' for s in get_segments()])
+
+
+def get_segments():
+    dat = renderer.session.data
+    if not 'segments' in dat:
+        dat['segments'] = []
+
+    return dat['segments']
+
+
+def create_segment(off):
+    global current_segment
+    get_segments().append((renderer.session.f, renderer.session.f + off))
+    current_segment = len(get_segments()) - 1
+    renderer.session.save_data()
+
+
+def get_fps_stop(current, offset):
+    stops = fps_stops
+    pairs = list(zip(stops, stops[1:]))
+
+    idx = stops.index(current)
+    if idx >= 0:
+        idx = max(0, min(idx + offset, len(stops) - 1))
+        return stops[idx]
+
+    for i, p in enumerate(pairs):
+        a, b = p
+        if a <= current <= b:
+            return a if offset < 0 else b
+
+    return current
 
 
 def draw_text(s, x, y, col=(255, 255, 255), origin=(0, 0)):
@@ -549,32 +583,21 @@ def draw_text(s, x, y, col=(255, 255, 255), origin=(0, 0)):
 
     # Shadow
     text = font.render(s, False, (0, 0, 0))
-    screen.blit(text, (x + -1, y + 0))
-    screen.blit(text, (x + -1, y + -1))
-    screen.blit(text, (x + 1, y + 1))
-    screen.blit(text, (x + 0, y + -1))
+    surface.blit(text, (x + -1, y + 0))
+    surface.blit(text, (x + -1, y + -1))
+    surface.blit(text, (x + 1, y + 1))
+    surface.blit(text, (x + 0, y + -1))
 
     # Main
     text = font.render(s, False, col)
-    screen.blit(text, (x, y))
+    surface.blit(text, (x, y))
 
 
-def modify_surface(surface):
-    # Modify the surface before drawing
-    # if not session.f_exists:
-    #     alpha = int(0.01 * 255)
-    #     shadow = int(0.2 * 255)
-    #     surface = pilsurface.copy()
-    #
-    #     # Rainbow scrolling hue
-    #     render_steps = session.jobs[-1].progress_max
-    #     if is_rendering and render_steps > 0:
-    #         hue = (time.time() * 100) % 360
-    #         color = colorsys.hsv_to_rgb(hue / 360, 1, 0.2)
-    #         color = tuple(int(c * 255) for c in color)
-    #         color = (*color, alpha)
-    #         # Tinted surface
-    #         surface.fill(color, special_flags=pygame.BLEND_RGB_ADD)
-    #
-    #     surface.fill((255 - shadow, 255 - shadow, 255 - shadow, 255), special_flags=pygame.BLEND_RGB_MULT)
-    return surface
+# endregion
+
+# region Controls
+def upfont(param):
+    global font, fontsize
+    fontsize += param
+    font = pygame.font.Font((paths.plug_res / 'vt323.ttf').as_posix(), fontsize)
+# endregion

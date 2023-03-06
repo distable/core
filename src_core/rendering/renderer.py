@@ -27,13 +27,16 @@ import math
 import os
 import signal
 import sys
+import threading
 import time
 from pathlib import Path
 
 from yachalk import chalk
 
+import jargs
 import user_conf
 from jargs import args, get_discore_session
+from src_core.rendering.hobo import HoboWindow
 from src_core.lib.corelib import invoke_safe
 from src_core.classes import paths
 from src_core.classes.paths import get_script_file_path, parse_action_script
@@ -51,10 +54,10 @@ v = RenderVars()
 
 session: None | Session = None  # Current session
 script_name = ''  # Name of the script file
-script_path = ''  # Path to the script file
 script = None  # The script module
 is_dev = False  # Are we in dev mode?
-is_cli = False
+is_gui = False  # Are we in GUI mode?
+is_main_thread = False  # Are we on a separate thread to let the GUI be on main?
 
 # Parameters (long)
 detect_script_every = -1
@@ -85,10 +88,10 @@ last_frame_prompt = ""
 last_frame_time = 0
 last_frame_dt = 1 / 24
 script_time_cache = {}
-invalidated = True
 elapsed = 0
 
 # Signals
+invalidated = True  # This is to be handled by a GUI, such a hobo (ftw)
 on_frame_changed = []
 on_t_changed = []
 on_script_loaded = []
@@ -137,26 +140,25 @@ def detect_script_modified():
 
 def load_script(name=None):
     import importlib
-    global script_name
-    global script_path
 
     callbacks.clear()
 
     global script
     with trace('renderer.load_script'):
-        script_name = script_name or name
-        if script_name is None:
-            a, sc = parse_action_script(args.action)
-            script_name = sc
+        # Determine the script path
+        # ----------------------------------------
+        name = script_name or name
+        fpath = ''
 
-        if script_name is not None:
-            fpath = get_script_file_path(script_name)
-        else:
-            fpath = session.res('script.py')
-            paths.touch(fpath)
+        if not name:
+            _, name = parse_action_script(jargs.args.action)
+            if name is not None:
+                fpath = get_script_file_path(script_name)
 
-        script_path = fpath
+        if not fpath:
+            fpath = session.res_script(name, touch=True)
 
+        # Get the old globals
         oldglobals = None
         if script is not None:
             oldglobals = script.__dict__.copy()
@@ -192,84 +194,150 @@ def load_script(name=None):
 
 # region Core functionality
 
-def init(s=None, scriptname='', cli=False):
+def init(s=None, scriptname='', gui=True, main_thread=True):
+    """
+    Initialize the renderer
+    This will load the script, initialize the core
+    Args:
+        s:
+        scriptname: Name of the script to load. If not specified, it will load the default session script.
+        gui: Whether or not we are running in GUI mode. In CLI, we immediately resume the render and cannot do anything else.
+        main_thread: Run the renderer on a side thread so the main thread is reserved for GUI. You must pass a callback to loop() instead of using it as a yielding iterator.
+
+    Returns:
+    """
     global initialized
+    global is_main_thread, is_dev, is_gui
     global session, script_name
-    global is_dev, request_pause
+    global request_pause
     global invalidated
-    global is_cli
     from src_core import core
 
-    session = s or get_discore_session()
-    v.reset(0, session)
-
+    is_main_thread = main_thread
     script_name = scriptname
+
+    session = s or get_discore_session()
+
+    # Load the script
+    # ----------------------------------------
     with trace('Script loading'):
         from PIL import Image
         invoke_safe(load_script, unsafe=unsafe)
 
-        session.width = v.w
-        session.height = v.h
+    # Setup the session
+    # ----------------------------------------
+    session.width = v.w
+    session.height = v.h
+    if session.image is None:
+        session.set(Image.new('RGB', (v.w, v.h), (0, 0, 0)))
 
-        # Default to black
-        if session.image is None:
-            session.set(Image.new('RGB', (v.w, v.h), (0, 0, 0)))
-
+    # Initialize the core
+    # ----------------------------------------
     core.init(pluginstall=args.install)
 
-    if not cli:
-        from src_core.rendering import hobo, ryusig
+    # GUI setup
+    # ----------------------------------------
+    is_gui = gui
+    if gui and main_thread:
+        # Run the GUI on 2nd thread
+        threading.Thread(target=ui_thread_loop, daemon=True).start()
 
-        audio.init(v.wavs, root=session.dirpath)
-
-        request_pause = True
-        hobo.init()
-        ryusig.ryusig_init(args.ryusig)
-        session.seek_min()
-    else:
-        session.seek_new()
-
-    is_cli = cli
     invalidated = True
-
-    signal.signal(signal.SIGTERM, handle_exit)
-
     initialized = True
+    v.reset(0, session)
+
+    signal.signal(signal.SIGTERM, handle_sigterm)
     return session
 
 
-def handle_exit():
-    print("hi")
+def ui_thread_loop():
+    from src_core.rendering import hobo, ryusig
+    global request_stop
+
+    import pyqtgraph
+    from PyQt5 import QtCore, QtGui
+    from PyQt5.QtWidgets import QApplication
+    pyqtgraph.mkQApp("Ryusig")
+
+    audio.init(v.wavs or session.res_music(), root=session.dirpath)
+
+    ryusig.init()
+    hobo.init()
+
+    # Setup Qt window
+    hobowin = HoboWindow(hobo.surface)
+    hobowin.resize(session.w, session.h)
+    hobowin.setWindowTitle('DreamStudio Hobo')
+    hobowin.setWindowIcon(QtGui.QIcon((paths.root / 'icon.png').as_posix()))
+    hobowin.show()
+    hobowin.timeout_handlers.append(lambda: hobo.update())
+    hobowin.key_handlers.append(lambda k, ctrl, shift, alt: hobo.keydown(k, ctrl, shift, alt))
+    hobowin.dropenter_handlers.append(lambda f: hobo.dropenter(f))
+    hobowin.dropfile_handlers.append(lambda f: hobo.dropfile(f))
+    hobowin.dropleave_handlers.append(lambda f: hobo.dropleave(f))
+    hobowin.focusgain_handlers.append(lambda: hobo.focusgain())
+    hobowin.focuslose_handlers.append(lambda: hobo.focuslose())
+
+    # app.exec_()
+    import sys
+    if (sys.flags.interactive != 1) or not hasattr(QtCore, 'PYQT_VERSION'):
+        QApplication.instance().exec_()
+    global request_stop
+
+    request_stop = True
 
 
-def loop(lo=None, hi=math.inf):
+def handle_sigterm():
+    print("renderer sigterm handler")
+
+
+def loop(lo=None, hi=math.inf, callback=None, inner=False):
+    if not is_main_thread and not inner:
+        def loop_thread():
+            global request_stop
+            for _ in loop(lo, hi, inner=True):
+                callback()
+
+        t = threading.Thread(target=loop_thread, args=())
+        t.start()
+        if is_gui:
+            ui_thread_loop()
+        return
+
     global request_render, request_script_check, seeks
     global invalidated, is_rendering, request_stop
     global paused, request_pause, was_paused, last_frame_dt, last_frame_time
 
+    last_script_check = 0
+
+    if is_gui:
+        request_pause = True
+        session.seek_min()
+    else:
+        session.seek_new()
+
     if lo is not None:
         session.seek(lo)
 
-    last_script_check = 0
-
     while session.f < hi and not request_stop:
         with trace("renderiter"):
+            # ----------------------------------------
             with trace("renderiter.reload_script_check"):
                 elapsed = time.time() - last_script_check
                 if request_script_check \
-                        or elapsed > detect_script_every and detect_script_every > 0 \
-                        or is_cli:
+                        or elapsed > detect_script_every > 0 \
+                        or not is_gui:
                     request_script_check = False
                     if detect_script_modified():
                         print(chalk.dim(chalk.blue("Change detected in scripts, reloading")))
                         invoke_safe(load_script, unsafe=unsafe)
                     last_script_check = time.time()
 
+            # ----------------------------------------
             paused = request_pause
 
             with trace("renderiter.update_playback"):
                 changed = update_playback()
-                # sleep_dt()
 
             just_paused = paused and not was_paused
             just_unpaused = not paused and was_paused
@@ -281,12 +349,14 @@ def loop(lo=None, hi=math.inf):
                 invoke_safe(on_frame_changed, session.f, unsafe=unsafe)
                 invoke_safe(on_t_changed, session.t, unsafe=unsafe)
 
+            # ----------------------------------------
             with trace("renderiter.audio"):
                 if just_unpaused or is_dev and request_render == 'toggle':
                     audio.play(session.t)
                 elif just_paused:
                     audio.stop()
 
+            # ----------------------------------------
             with trace("renderiter.render"):
                 render = request_render == 'now' or request_render == 'toggle'
                 if render:
@@ -303,7 +373,7 @@ def loop(lo=None, hi=math.inf):
                     if require_dry_run:
                         frame(dry=True)
 
-            if paused and not request_render:
+            if request_render:
                 time.sleep(0.1)
 
         was_paused = paused
@@ -450,7 +520,7 @@ def update_playback():
         session.load_f()
         session.load_file()
 
-    frame_exists = session.determine_current_frame_exists()
+    frame_exists = session.det_current_frame_exists()
     catchedup_end = not frame_exists and not was_paused
     catchedup = play_until and session.f >= play_until
     if catchedup_end or catchedup:
@@ -473,7 +543,6 @@ def flush_seeks(changed, seeks):
         seeks.pop(0)
 
         f_prev = session.f
-
         session.f = iseek
 
         # Clamping

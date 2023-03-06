@@ -32,13 +32,13 @@ argp.add_argument('--preview_every', type=int, default=None, help='Create a prev
 argp.add_argument('--preview_command', type=str, default='', help='The default ffmpeg command to use for preview videos.')
 
 # Script Arguments
-argp.add_argument('--fps', type=int, default=30, help='FPS')
-argp.add_argument('--frames', '-f', type=str, default=None, help='The frames to render in first:last format')
-argp.add_argument('--w', type=str, default=None, help='The target width.')
-argp.add_argument('--h', type=str, default=None, help='The target height.')
-argp.add_argument('--music', '-mu', type=str, default=None, help='Music file to play in video export')
-argp.add_argument('--music_start', type=float, default=None, help='Music start time in seconds')
-argp.add_argument('--mpv', action='store_true', help='Open the resulting video in MPV.')
+argp.add_argument('--fps', type=int, default=None, help='FPS to use for FFMPEG video. By default the session FPS is detected.')
+argp.add_argument('--frames', '-f', type=str, default=None, help='The frames to render in first:last,first:last,... format')
+argp.add_argument('--w', type=str, default=None, help='The target width for FFMPEG video. By default the session width is detected.')
+argp.add_argument('--h', type=str, default=None, help='The target height for FFPMEG video. By default the session height is detected.')
+argp.add_argument('--music', '-mu', type=str, default=None, help='Music to use for FFMPEG video. By default the session music is detected.')
+argp.add_argument('--music_start', type=float, default=None, help='Music start time in seconds.')
+argp.add_argument('--mpv', action='store_true', help='Open the resulting FFMPEG video in MPV.')
 
 # Deployment
 argp.add_argument('--shell', action='store_true', default=None, help='Open a shell in the deployed remote.')
