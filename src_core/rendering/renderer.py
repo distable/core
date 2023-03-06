@@ -295,8 +295,8 @@ def loop(lo=None, hi=math.inf, callback=None, inner=False):
     if not is_main_thread and not inner:
         def loop_thread():
             global request_stop
-            for _ in loop(lo, hi, inner=True):
-                callback()
+            for f in loop(lo, hi, inner=True):
+                callback(f)
 
         t = threading.Thread(target=loop_thread, args=())
         t.start()
@@ -341,9 +341,13 @@ def loop(lo=None, hi=math.inf, callback=None, inner=False):
 
             just_paused = paused and not was_paused
             just_unpaused = not paused and was_paused
+            had_seeks = len(seeks) > 0
+            prev_seeks = list(seeks)
 
             with trace("renderiter.flush_seeks"):
                 changed = flush_seeks(changed, seeks)
+
+            just_seeked = had_seeks and len(seeks) == 0
 
             if changed:
                 invoke_safe(on_frame_changed, session.f, unsafe=unsafe)
@@ -355,6 +359,9 @@ def loop(lo=None, hi=math.inf, callback=None, inner=False):
                     audio.play(session.t)
                 elif just_paused:
                     audio.stop()
+
+                if audio.is_playing() and changed and just_seeked:
+                    audio.seek(session.t)
 
             # ----------------------------------------
             with trace("renderiter.render"):
@@ -605,7 +612,7 @@ def pause(set='toggle'):
         play_until = 0
 
 
-def seek(f_target, manual_input=False, pause=True, clamp=True, image_only=False):
+def seek(f_target, manual_input=False, pause=None, clamp=True, image_only=False):
     """
     Seek to a frame.
     Note this is not immediate, it is a request that will be handled as part of the render loop.
@@ -621,11 +628,13 @@ def seek(f_target, manual_input=False, pause=True, clamp=True, image_only=False)
             f_target = session.f_last + 1
 
     seeks.append((f_target, manual_input, image_only))
-    request_pause = pause
     looping = False
 
-    if not pause:
-        print(f'NON-PAUSING SEEK MAY BE BUGGY')
+    if pause is not None:
+        request_pause = pause
+
+    # if not pause:
+    #     print(f'NON-PAUSING SEEK MAY BE BUGGY')
 
 
 def seek_t(t_target, manual_user_input=False, pause=True):
@@ -666,20 +675,20 @@ def render(mode):
 # endregion
 
 # region Event Hooks
-def on_audio_playback_start(t):
-    global request_pause
+# def on_audio_playback_start(t):
+#     global request_pause
+#
+#     seek_t(t)
+#     request_pause = False
+#
+#
+# def on_audio_playback_stop(t_start, t_end):
+#     global request_pause
+#
+#     seek_t(t_start)
+#     request_pause = True
 
-    seek_t(t)
-    request_pause = False
 
-
-def on_audio_playback_stop(t_start, t_end):
-    global request_pause
-
-    seek_t(t_start)
-    request_pause = True
-
-
-audio.on_playback_start.append(on_audio_playback_start)
-audio.on_playback_stop.append(on_audio_playback_stop)
+# audio.on_playback_start.append(on_audio_playback_start)
+# audio.on_playback_stop.append(on_audio_playback_stop)
 # endregion
