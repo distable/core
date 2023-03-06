@@ -217,6 +217,7 @@ def init(s=None, scriptname='', gui=True, main_thread=True):
     script_name = scriptname
 
     session = s or get_discore_session()
+    v.reset(0, session)
 
     # Load the script
     # ----------------------------------------
@@ -244,7 +245,6 @@ def init(s=None, scriptname='', gui=True, main_thread=True):
 
     invalidated = True
     initialized = True
-    v.reset(0, session)
 
     signal.signal(signal.SIGTERM, handle_sigterm)
     return session
@@ -261,8 +261,8 @@ def ui_thread_loop():
 
     audio.init(v.wavs or session.res_music(), root=session.dirpath)
 
-    ryusig.init()
     hobo.init()
+    ryusig.init()
 
     # Setup Qt window
     hobowin = HoboWindow(hobo.surface)
@@ -382,6 +382,9 @@ def loop(lo=None, hi=math.inf, callback=None, inner=False):
 
             if request_render:
                 time.sleep(0.1)
+            else:
+                time.sleep(1/60)
+
 
         was_paused = paused
 

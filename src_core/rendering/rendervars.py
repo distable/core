@@ -135,8 +135,8 @@ class RenderVars(SessionVars):
                     continue
 
                 # print(f"SET {name} {v}")
-                self.signals[k] = v
-                self.__dict__[f'{k}s'] = v
+                self.signals[name] = v
+                self.__dict__[f'{name}s'] = v
 
     def set_frame_signals(self):
         dic = self.__dict__.copy()
