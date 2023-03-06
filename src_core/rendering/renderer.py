@@ -383,8 +383,7 @@ def loop(lo=None, hi=math.inf, callback=None, inner=False):
             if request_render:
                 time.sleep(0.1)
             else:
-                time.sleep(1/60)
-
+                time.sleep(1 / 60)
 
         was_paused = paused
 
@@ -566,19 +565,12 @@ def flush_seeks(changed, seeks):
         if session.f_last is not None and session.f > session.f_last + 1:
             session.f = session.f_last + 1
 
-        session.load_f()
-        session.load_file()
-        invalidated = changed = True
-
-        img = session.image
         if image_only:
-            session.f = f_prev
-            session.load_f()
-            session.load_file()
-            session.image = img
+            session.load_file(f_prev)
+        else:
+            session.load_f(clamped_load=True)
 
-        # if manual:  # This is to process each frame even if there is multiple inputs buffered from pygame due to lag
-        #     break
+        invalidated = changed = True
 
     seeks.clear()
     return changed
@@ -620,7 +612,11 @@ def pause(set='toggle'):
         play_until = 0
 
 
-def seek(f_target, manual_input=False, pause=None, clamp=True, image_only=False):
+def seek(f_target,
+         manual_input=False,
+         pause=None,
+         clamp=True,
+         image_only=False):
     """
     Seek to a frame.
     Note this is not immediate, it is a request that will be handled as part of the render loop.
@@ -645,7 +641,9 @@ def seek(f_target, manual_input=False, pause=None, clamp=True, image_only=False)
     #     print(f'NON-PAUSING SEEK MAY BE BUGGY')
 
 
-def seek_t(t_target, manual_user_input=False, pause=True):
+def seek_t(t_target,
+           manual_user_input=False,
+           pause=True):
     """
     Seek to a time in seconds.
     Note this is not immediate, it is a request that will be handled as part of the render loop.
