@@ -499,7 +499,7 @@ def frame(f=None, scalar=1, s=None, dry=False):
 def update_playback():
     global invalidated
     global play_until
-    global elapsed, paused
+    global elapsed, paused, request_pause
     global last_frame_time, last_frame_dt
 
     # Update delta time and elapsed
@@ -526,6 +526,10 @@ def update_playback():
     else:
         changed = False
 
+    # if session.f >= session.f_last + 1:
+    #     session.f = session.f_last + 1
+    #     paused = True
+
     if changed:
         session.load_f()
         session.load_file()
@@ -540,6 +544,7 @@ def update_playback():
         else:
             play_until = None
             paused = True
+            request_pause = True
 
     return changed
 
