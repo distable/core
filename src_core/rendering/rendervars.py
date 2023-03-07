@@ -110,6 +110,14 @@ class RenderVars(SessionVars):
         v.nguide, v.nsp = 0, 0
         v.smear = 0
 
+    def resolution(self, w, h, *, frac=64, draft=0, remote=None):
+        draft += 1
+
+        self.w = w // self.draft
+        self.h = h // self.draft
+        self.w = self.w // frac * frac
+        self.h = self.h // frac * frac
+
     def reset(self, f, session):
         v = self
         s = session
@@ -134,7 +142,7 @@ class RenderVars(SessionVars):
                     print(f"set_frame_signals: {name} is protected and cannot be set as a signal. Skipping...")
                     continue
 
-                # print(f"SET {name} {v}")
+                print(f"SET {name} {v}")
                 self.signals[name] = v
                 self.__dict__[f'{name}s'] = v
 
@@ -147,6 +155,7 @@ class RenderVars(SessionVars):
             if name in self.signals:
                 signal = self.signals[name]
                 try:
+                    # print("fetch", name, self.f, len(signal))
                     self.__dict__[name] = signal[self.f]
                     self.__dict__[f'{name}s'] = signal
                 except IndexError:

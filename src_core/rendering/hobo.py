@@ -81,12 +81,15 @@ class HoboWindow(QMainWindow):
         self.dropfile_handlers = []
         self.focusgain_handlers = []
         self.focuslose_handlers = []
+        self.setFocusPolicy(QtCore.Qt.StrongFocus)
+        self.setAcceptDrops(True)
 
     def on_timer_timeout(self):
         for hnd in self.timeout_handlers:
             hnd()
         self.update()
         self.centralWidget().repaint()
+
 
     def keyPressEvent(self, event):
         for hnd in self.key_handlers:

@@ -5,6 +5,7 @@ diffusers~=0.11.1
 # fonts
 # font-roboto
 numpy==1.23.5
+cupy-wheel
 omegaconf~=2.2.3
 piexif~=1.1.3
 Pillow~=9.4.0

@@ -87,6 +87,8 @@ if jargs.args.remote:
 # GUI config
 # ----------------------------------------
 
+hobo_seek_percent = 1 / 15
+
 qkeys = QtCore.Qt.Key
 key_pause = qkeys.Key_Space
 
@@ -119,7 +121,6 @@ key_seek_prev_segment = qkeys.Key_Comma
 key_seek_next_segment = qkeys.Key_Period
 key_play_segment = qkeys.Key_P
 
-hobo_seek_percent = 1 / 15
 
 
 # # Plugin config

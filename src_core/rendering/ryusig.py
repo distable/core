@@ -4,15 +4,20 @@ from PyQt5 import QtCore
 from PyQt5.QtCore import QCoreApplication
 
 from src_core.rendering import renderer
+from src_plugins.ryusig_calc.RyusigApp import RyusigApp
 
-app = None
-
+initialized = False
+app:RyusigApp|None = None
 
 def toggle():
+    if not initialized:
+        init()
+
     w = app.win
     if w.isVisible():
         app.win.hide()
     else:
+
         app.win.show()
         app.win.raise_()
 
@@ -30,6 +35,7 @@ def on_script_loaded():
 
 
 def init():
+    global initialized
     from src_plugins.ryusig_calc.RyusigApp import RyusigApp
     global app
 
@@ -51,6 +57,8 @@ def init():
 
     app.on_t_selected.append(on_t_selected_ryusig)
     app.key_hide_window = QtCore.Qt.Key.Key_F1
+
+    initialized = True
 
 
 def on_keypress(key, ctrl, shift, alt):

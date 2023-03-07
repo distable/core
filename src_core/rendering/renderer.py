@@ -60,7 +60,7 @@ is_gui = False  # Are we in GUI mode?
 is_main_thread = False  # Are we on a separate thread to let the GUI be on main?
 
 # Parameters (long)
-detect_script_every = -1
+detect_script_every = 1
 enable_save = True  # Enable saving the frames
 enable_save_hud = False  # Enable saving the HUD frames
 auto_populate_hud = False  # Dry runs to get the HUD data when it is missing, can be laggy if the script is not optimized
@@ -72,7 +72,7 @@ loop_start = 0  # Frame to loop back to
 play_until = 0  # Frame to play until (auto-stop)
 seeks = []  # Frames to seek to
 request_script_check = False  # Check if the script has been modified
-request_pause = False  # Pause the playback/renderer
+request_pause = None  # Pause the playback/renderer
 request_render = False  # Render a frame
 request_stop = False  # Stop the whole renderer
 audio = AudioPlayback()
@@ -85,7 +85,7 @@ n_rendered = 0  # Number of frames rendered
 is_rendering = False
 was_paused = False
 last_frame_prompt = ""
-last_frame_time = 0
+last_frame_time = None
 last_frame_dt = 1 / 24
 script_time_cache = {}
 elapsed = 0
@@ -162,6 +162,8 @@ def load_script(name=None):
         oldglobals = None
         if script is not None:
             oldglobals = script.__dict__.copy()
+            # Don't keep functions
+            oldglobals = {k: v for k, v in oldglobals.items() if not callable(v)}
 
         # Reload all modules in the scripts folder
         mpath = paths.get_script_module_path(fpath)
@@ -257,12 +259,12 @@ def ui_thread_loop():
     import pyqtgraph
     from PyQt5 import QtCore, QtGui
     from PyQt5.QtWidgets import QApplication
-    pyqtgraph.mkQApp("Ryusig")
+    pyqtgraph.mkQApp("Discore")
 
     audio.init(v.wavs or session.res_music(), root=session.dirpath)
 
     hobo.init()
-    ryusig.init()
+    # ryusig.init()
 
     # Setup Qt window
     hobowin = HoboWindow(hobo.surface)
@@ -334,7 +336,16 @@ def loop(lo=None, hi=math.inf, callback=None, inner=False):
                     last_script_check = time.time()
 
             # ----------------------------------------
-            paused = request_pause
+            if request_render:
+                paused = False
+
+            with trace("renderiter.flush_pausing"):
+                if request_pause is not None:
+                    paused = request_pause
+                    request_pause = None
+
+            with trace("renderiter.flush_seeks"):
+                changed = flush_seeks(seeks)
 
             with trace("renderiter.update_playback"):
                 changed = update_playback()
@@ -344,8 +355,6 @@ def loop(lo=None, hi=math.inf, callback=None, inner=False):
             had_seeks = len(seeks) > 0
             prev_seeks = list(seeks)
 
-            with trace("renderiter.flush_seeks"):
-                changed = flush_seeks(changed, seeks)
 
             just_seeked = had_seeks and len(seeks) == 0
 
@@ -355,9 +364,9 @@ def loop(lo=None, hi=math.inf, callback=None, inner=False):
 
             # ----------------------------------------
             with trace("renderiter.audio"):
-                if just_unpaused or is_dev and request_render == 'toggle':
+                if not paused and not audio.is_playing() and (not request_render or is_dev): #or is_dev and request_render == 'toggle':
                     audio.play(session.t)
-                elif just_paused:
+                elif paused and audio.is_playing():
                     audio.stop()
 
                 if audio.is_playing() and changed and just_seeked:
@@ -380,9 +389,7 @@ def loop(lo=None, hi=math.inf, callback=None, inner=False):
                     if require_dry_run:
                         frame(dry=True)
 
-            if request_render:
-                time.sleep(0.1)
-            else:
+            if paused:
                 time.sleep(1 / 60)
 
         was_paused = paused
@@ -413,8 +420,10 @@ def frame(f=None, scalar=1, s=None, dry=False):
 
     # The script has requested the maximum frame length
     if v.len > 0 and session.f >= v.len - 1:
-        paused = True
         request_render = None
+        request_pause = True
+        seek(session.f_last)
+        # TODO UI notification
         return
 
     session.dev = is_dev
@@ -515,7 +524,7 @@ def update_playback():
         elapsed = 0
 
     #  Update TODO
-    if not paused:
+    if not paused and (not request_render or is_dev):
         changed = False
         while elapsed >= 1 / session.fps:
             session.f += 1
@@ -525,31 +534,28 @@ def update_playback():
     else:
         changed = False
 
-    # if session.f >= session.f_last + 1:
-    #     session.f = session.f_last + 1
-    #     paused = True
-
     if changed:
         session.load_f()
-        session.load_file()
 
-    frame_exists = session.det_current_frame_exists()
-    catchedup_end = not frame_exists and not was_paused
-    catchedup = play_until and session.f >= play_until
-    if catchedup_end or catchedup:
-        if looping:
-            seek(loop_start)
-            paused = False
-        else:
-            play_until = None
-            paused = True
-            request_pause = True
+    if not request_render:
+        frame_exists = session.f_exists
+        catchedup_end = not frame_exists and not was_paused
+        catchedup = play_until and session.f >= play_until
+        if catchedup_end or catchedup:
+            if looping:
+                seek(loop_start)
+                paused = False
+            else:
+                play_until = None
+                paused = True
+                request_pause = True
 
     return changed
 
 
-def flush_seeks(changed, seeks):
+def flush_seeks(seeks):
     global invalidated
+    changed = False
 
     tmplist.clear()
     tmplist.extend(seeks)
@@ -601,12 +607,13 @@ def pause(set='toggle'):
     looping = False
     if is_rendering and request_render == 'toggle':
         request_render = False
+        request_pause = True
     elif is_rendering and request_render == False:
         render('toggle')
     elif session.f >= session.f_last + 1:
         render('toggle')
     else:
-        request_pause = not request_pause
+        request_pause = not paused
 
     if request_pause:
         play_until = 0
@@ -671,8 +678,8 @@ def render(mode):
         if session.f < session.f_last + 1:
             seek(session.f_last + 1, clamp=False)
             seek(session.f_last, clamp=False, image_only=True)
-        request_pause = True
-        invalidated = True
+        # request_pause = True
+        # invalidated = True
         request_render = mode
 
     request_render = mode
