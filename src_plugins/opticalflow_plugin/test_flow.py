@@ -1,12 +1,12 @@
 import user_conf
 
-assert user_conf.hasplug('sd1111'), "This test requires sd1111"
-assert user_conf.hasplug('opticalflow'), "This test requires optical flow"
-
 from src_core import core
 from src_core.classes.Session import Session
 
 if __name__ == "__main__":
+    assert user_conf.hasplug('sd1111'), "This test requires sd1111"
+    assert user_conf.hasplug('opticalflow'), "This test requires optical flow"
+
     core.init()
 
     # TODO Merge PipeData into Session, we dont need that complexity

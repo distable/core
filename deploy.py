@@ -363,6 +363,8 @@ def deploy_vastai():
         if not repo_existed or not args.vastai_continue:
             launch_cmd += f' --install'
 
+        # TODO get jargs session and transfer it
+
         launch_cmd += "'"
         os.system(launch_cmd)
 

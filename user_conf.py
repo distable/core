@@ -1,9 +1,13 @@
+import torch
 from PyQt5 import QtCore
 
 import jargs
 from src_core.conf import *
 
 share = False
+
+torch.set_float32_matmul_precision('high')
+# torch.backends.cudnn.benchmark = True
 
 # Core
 # ----------------------------------------
@@ -24,7 +28,8 @@ plugload('copyres')
 plugload('distable/disco-party')
 plugload('distable/ryusig-calc')
 
-sd = plugdef('distable/sd1111_plugin')
+sd = plugdef('sd_diffusers_plugin')
+# sd1111 = plugdef('distable/sd1111_plugin')
 
 # paella = plugload('paella')
 # kup = plugdef('kupscale')
@@ -37,8 +42,15 @@ edgedet = plugload('edgedet')
 noise = plugload('spnoise')
 glsl = plugload('glsl')
 
-# sd.attention = 4
-sd.bit8 = False
+# sd1111.attention = 4
+# sd1111.bit8 = False
+# sd1111.medvram = True
+# sd1111.lowvram = False
+# sd1111.lowram = False
+# sd1111.precision = 'full'
+# sd1111.no_half = True
+# sd1111.no_half_vae = True
+# sd1111.batch_cond_uncond = False
 
 aliasdef(dream='sd1111.txt2img',
          imagine='sd1111.txt2img')
@@ -50,16 +62,10 @@ forbidden_dev_jobs = [
     'sd1111.img2img',
 ]
 
-# sd.res_ckpt = 'miniSD.ckpt'
-# sd.res_ckpt = 'sd-v2-0-depth.ckpt'
-# sd.res_ckpt = 'nouvisPsychedelicMod_15.ckpt'
-sd.medvram = True
-sd.lowvram = False
-sd.lowram = False
-sd.precision = 'full'
-sd.no_half = True
-sd.no_half_vae = True
-sd.batch_cond_uncond = False
+# sd1111.res_ckpt = 'miniSD.ckpt'
+# sd1111.res_ckpt = 'sd-v2-0-depth.ckpt'
+# sd1111.res_ckpt = 'nouvisPsychedelicMod_15.ckpt'
+
 
 # Deployment
 # ----------------------------------------
@@ -76,12 +82,12 @@ if jargs.args.remote:
     print("----------------------------------------")
     print("Activating remote arguments")
     print("----------------------------------------")
-    sd.medvram = False
-    sd.lowvram = False
-    sd.precision = 'half'
-    sd.no_half = False
-    sd.no_half_vae = False
-    sd.batch_cond_uncond = True
+    sd1111.medvram = False
+    sd1111.lowvram = False
+    sd1111.precision = 'half'
+    sd1111.no_half = False
+    sd1111.no_half_vae = False
+    sd1111.batch_cond_uncond = True
     # jargs.args.zip_every = 120
 
 # GUI config
@@ -133,7 +139,7 @@ key_play_segment = qkeys.Key_P
 #     "Inside a strange <pow> contorted psychedelic cave with distance and horizon, airbrushed art, impressionism"
 # ]
 
-# sd.sd_job = dict(prompt=choice(prompts),
+# sd1111.sd_job = dict(prompt=choice(prompts),
 #                  steps=17,
 #                  cfg=7.65,
 #                  sampler='euler-a',

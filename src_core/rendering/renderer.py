@@ -36,7 +36,6 @@ from yachalk import chalk
 import jargs
 import user_conf
 from jargs import args, get_discore_session
-from src_core.rendering.hobo import HoboWindow
 from src_core.lib.corelib import invoke_safe
 from src_core.classes import paths
 from src_core.classes.paths import get_script_file_path, parse_action_script
@@ -253,6 +252,7 @@ def init(s=None, scriptname='', gui=True, main_thread=True):
 
 
 def ui_thread_loop():
+    from src_core.rendering.hobo import HoboWindow
     from src_core.rendering import hobo, ryusig
     global request_stop
 
@@ -261,7 +261,7 @@ def ui_thread_loop():
     from PyQt5.QtWidgets import QApplication
     pyqtgraph.mkQApp("Discore")
 
-    audio.init(v.wavs or session.res_music(), root=session.dirpath)
+    audio.init(v.wavs or session.res_music(optional=True), root=session.dirpath)
 
     hobo.init()
     # ryusig.init()
@@ -374,7 +374,7 @@ def loop(lo=None, hi=math.inf, callback=None, inner=False):
 
             # ----------------------------------------
             with trace("renderiter.render"):
-                render = request_render == 'now' or request_render == 'toggle'
+                render = request_render == 'now' or request_render == 'toggle' or not is_gui
                 if render:
                     if request_render == 'now':
                         request_render = False
@@ -384,6 +384,9 @@ def loop(lo=None, hi=math.inf, callback=None, inner=False):
 
                     with cpuprofile(args.profile):
                         yield session.f
+
+                    if not is_dev:
+                        last_frame_time = None
                 elif changed:
                     require_dry_run = not session.has_frame_data('hud') and session.f_exists and auto_populate_hud
                     if require_dry_run:

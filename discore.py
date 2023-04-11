@@ -176,6 +176,34 @@ def plugin_wizard():
     exit(0)
 
 
+def print_possible_scripts():
+    from yachalk import chalk
+
+    for file in paths.get_script_paths():
+        # Load the file (which is python) and get the docstring at the top
+        # The docstring can span multipline lines
+        with open(file, "r") as f:
+            fulldocstring = ''
+            docstring = f.readline().strip()
+
+            if docstring.startswith('"""'):
+                if len(docstring) > 3 and docstring.endswith('"""'):
+                    fulldocstring = docstring[3:-3]
+                elif docstring == '"""':
+                    fulldocstring = f.readline().strip()
+                    if fulldocstring.endswith('"""'):
+                        fulldocstring = fulldocstring[:-3]
+
+
+        print(f"  {os.path.relpath(file, paths.scripts)[:-3]}  {chalk.dim(fulldocstring)}")
+
+
+def print_existing_sessions():
+    from src_core.classes.Session import Session
+    for file in paths.sessions.iterdir():
+        s = Session(file, log=False)
+        print(f"  {file.stem} ({str(s)})")
+
 def main():
     from src_core import core
     from src_core.classes.logs import logdiscore_err
@@ -197,6 +225,16 @@ def main():
     else:
         from src_core.classes import common
         common.setup_ctrl_c(on_ctrl_c)
+
+        if args.session == 'help' and args.action is None:
+            print("Sessions:")
+            print_existing_sessions()
+
+            print("")
+
+            print("Scripts:")
+            print_possible_scripts()
+            exit(0)
 
         from src_core.classes.paths import parse_action_script
         a, sc = parse_action_script(args.action, DEFAULT_ACTION)
@@ -247,17 +285,6 @@ def main():
             server.run()
 
 
-def print_possible_scripts():
-    from src_core.classes.logs import logdiscore
-    logdiscore("All scripts: ")
-    # Iterate with os.walk
-    for root, dirs, files in os.walk(paths.scripts):
-        files = sorted(files, key=len)
-        if 'libs' not in root:
-            for file in files:
-                if file.endswith(".py") and not file.startswith("__"):
-                    # Print the relative path to root without extension
-                    print(f"  {os.path.relpath(os.path.join(root, file), paths.scripts)[:-3]}")
 
 # from classes.printlib import cpuprofile
 # with cpuprofile():

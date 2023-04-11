@@ -1,6 +1,8 @@
-torch~=1.13.1
-torchvision~=0.14.1
-diffusers~=0.11.1
+torch
+accelerate
+torchvision
+torchaudio
+diffusers
 # fairscale
 # fonts
 # font-roboto
@@ -46,7 +48,7 @@ gevent
 gevent-websocket
 websocket-client
 python-socketio
-transformers==4.19.2
+transformers==4.27.4
 # fire
 # pydub
 # stumpy
@@ -89,3 +91,5 @@ pyqtgraph~=0.13.1
 simpleaudio
 librosa
 resampy
+tomesd
+git+https://github.com/facebookresearch/segment-anything.git

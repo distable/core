@@ -9,6 +9,7 @@ argp.add_argument("action", nargs="?", default=None, help="Script or action to r
 argp.add_argument("subdir", nargs="?", default='', help="Subdir in the session")
 
 argp.add_argument('--run', action='store_true', help='Perform the run in a subprocess')
+argp.add_argument('--cli', action='store_true', help='Run the renderer in CLI mode. (no gui)')
 argp.add_argument('--remote', action='store_true', help='Indicates that we are running remotely.')
 argp.add_argument('--dev', action='store_true', help='Use a development environment to test the setup.')
 argp.add_argument('--ryusig', action='store_true', help='Use the ryusig calculator.')
