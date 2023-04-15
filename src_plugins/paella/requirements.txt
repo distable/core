@@ -1,0 +1,5 @@
+einops
+rudalle
+open_clip_torch
+git+https://github.com/pabloppp/pytorch-tools
+git+https://github.com/pabloppp/Arroz-Con-Cosas
