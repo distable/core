@@ -57,7 +57,7 @@ def run(command, log: bool | str | None = False, err=None):
         elif log is True:
             print(f"  >> {command}")
 
-    result = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
+    result = subprocess.run(command, shell=True) # stdout=subprocess.PIPE, stderr=subprocess.PIPE,
 
 #     if result.returncode != 0:
 #         message = f"""{err or 'Error running command'}.
@@ -69,7 +69,10 @@ def run(command, log: bool | str | None = False, err=None):
 #         print(message)
 #         # raise RuntimeError(message)
 
-    return result.stdout.decode(encoding="utf8", errors="ignore")
+    if result.stdout:
+        return result.stdout.decode(encoding="utf8", errors="ignore").strip()
+    else:
+        return None
 
 
 def gitclone(giturl, hash='master', into_dir=None, name=None):
@@ -87,7 +90,7 @@ def gitclone(giturl, hash='master', into_dir=None, name=None):
         if not clone_dir.exists():
             run(f'"{git}" clone {giturl} {Path(clone_dir)}')
         else:
-            current_hash = run(f'"{git}" -C {clone_dir} rev-parse HEAD', err=f"Couldn't determine {name}'s hash: {hash}").strip()
+            current_hash = run(f'"{git}" -C {clone_dir} rev-parse HEAD', err=f"Couldn't determine {name}'s hash: {hash}")
             if current_hash != hash:
                 run(f'"{git}" -C {clone_dir} fetch', err=f"Couldn't fetch {name}")
                 # print(giturl, clonedir, name, commithash)
@@ -156,4 +159,6 @@ def open_explorer(directory):
             # xdg-open *should* be supported by recent Gnome, KDE, Xfce
 
 
-print()
+def wget(file, url):
+    if not file.exists():
+        run(f'wget {url} --output-document {file.as_posix()}', err=f"Couldn't download {file.name}")

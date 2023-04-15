@@ -9,13 +9,13 @@ import subprocess
 import numpy as np
 import pygame
 from PIL import Image
-from PyQt5 import QtCore, QtGui
-from PyQt5.QtWidgets import *
+from PyQt6 import QtCore, QtGui
+from PyQt6.QtWidgets import *
 from pyqtgraph import *
 import pyqtgraph as pg
 from skimage.util import random_noise
 
-import user_conf
+import uiconf
 from src_core.classes import paths
 from src_core.classes.printlib import trace_decorator
 from src_core.classes.Session import Session
@@ -31,7 +31,9 @@ discovered_actions = []
 f_pulse = 0
 f_displayed = None
 
-action_page = 0
+sel_action_page = 0
+sel_snapshot = -1
+
 last_vram_reported = 0
 
 surface = None
@@ -53,7 +55,7 @@ class ImageWidget(QWidget):
         data = self.surface.get_buffer().raw
         w = self.surface.get_width()
         h = self.surface.get_height()
-        self.image = QtGui.QImage(data, w, h, QtGui.QImage.Format_RGB32)
+        self.image = QtGui.QImage(data, w, h, QtGui.QImage.Format.Format_RGB32)
 
     def paintEvent(self, event):
         # Update the image data without creating a new QImage
@@ -81,7 +83,7 @@ class HoboWindow(QMainWindow):
         self.dropfile_handlers = []
         self.focusgain_handlers = []
         self.focuslose_handlers = []
-        self.setFocusPolicy(QtCore.Qt.StrongFocus)
+        self.setFocusPolicy(QtCore.Qt.FocusPolicy.StrongFocus)
         self.setAcceptDrops(True)
 
     def on_timer_timeout(self):
@@ -138,7 +140,7 @@ def update():
     global enable_hud
     global current_segment
     global copied_frame
-    global action_page, discovered_actions
+    global sel_action_page, discovered_actions
     global f_displayed, last_vram_reported
     global f_pulse
     global surface
@@ -157,9 +159,10 @@ def draw():
     global enable_hud
     global current_segment
     global copied_frame
-    global action_page, discovered_actions
+    global sel_action_page, discovered_actions
     global f_displayed, pilsurface, last_vram_reported
     global frame_surface
+    global invalidated
 
     session = renderer.session
     v = renderer.v
@@ -184,17 +187,26 @@ def draw():
     # ----------------------------------------
     surface.fill((0, 0, 0))
 
-    changed = renderer.invalidated
+    changed = renderer.invalidated or invalidated
     if changed or f_displayed != f or renderer.is_rendering:
+        im = None
         # New frame
-        im = session.image_cv2
-        if im is None:
-            im = np.zeros((session.h, session.w, 3), dtype=np.uint8)
-        im = np.swapaxes(im, 0, 1)  # cv2 loads in h,w,c order, but pygame wants w,h,c
+        if sel_snapshot == -1:
+            im = session.image_cv2
+            if im is None:
+                im = np.zeros((session.h, session.w, 3), dtype=np.uint8)
+        elif sel_snapshot < len(v.snapshots):
+            im = v.snapshots[sel_snapshot][1]
 
-        frame_surface = pygame.surfarray.make_surface(im)
-        renderer.invalidated = False
-        f_displayed = f
+        if im is not None and im.shape >= (1, 1, 1):
+            im = np.swapaxes(im, 0, 1)  # cv2 loads in h,w,c order, but pygame wants w,h,c
+            frame_surface = pygame.surfarray.make_surface(im)
+            renderer.invalidated = False
+            invalidated = False
+            f_displayed = f
+        elif not renderer.is_rendering:
+            im = np.zeros((session.w, session.h, 3), dtype=np.uint8)
+            frame_surface = pygame.surfarray.make_surface(im)
 
     surface.blit(frame_surface, (0, 0))
 
@@ -232,7 +244,6 @@ def draw():
 
         render_progressbar_y = top2 + ht + ht
 
-    draw_text(session.name, left, bottom - ht * 1)
     draw_text(renderer.script_name, left, bottom - ht * 2, col=(0, 255, 0))
     draw_text(f"{session.width}x{session.height}", left, top + ht * 0)
     draw_text(f"{session.fps} fps", left, top + ht * 1)
@@ -246,6 +257,19 @@ def draw():
     minutes, seconds = divmod(remainder, 60)
     draw_text(f"{int(hours):02}:{int(minutes):02}:{int(seconds):02}", left, top + ht * 3, playback_color)
     base_ul_offset = 5
+
+    # LOWER LEFT
+    # ----------------------------------------
+    draw_text(session.name, left, bottom - ht * 1)
+
+    # LOWER RIGHT
+    # ----------------------------------------
+    if -1 < sel_snapshot < len(v.snapshots):
+        snap_str = f"Snapshot {sel_snapshot}"
+        snapshot = v.snapshots[sel_snapshot]
+        snap_str += f" ({snapshot[0]})"
+
+        draw_text(snap_str, right, bottom - ht * 1, origin=(1, 0))
 
     # Bars
     # ----------------------------------------
@@ -339,7 +363,7 @@ def draw():
                     y += ht
 
     if key_mode == 'action':
-        action_slice = discovered_actions[action_page:action_page + 9]
+        action_slice = discovered_actions[sel_action_page:sel_action_page + 9]
         x = pad
         y = ht * base_ul_offset
         for i, pair in enumerate(action_slice):
@@ -353,8 +377,27 @@ def draw():
 
 def keydown(key, ctrl, shift, alt):
     global key_mode
+    global sel_snapshot
+    global invalidated
 
     qkeys = QtCore.Qt.Key
+    v = renderer.v
+    s = renderer.session
+
+    n_snapshots = len(v.snapshots)
+    if n_snapshots > 1:
+        if key == qkeys.Key_Right and shift:
+            sel_snapshot = min(sel_snapshot + 1, n_snapshots - 1)
+            invalidated = True
+            return
+        if key == qkeys.Key_Left and shift:
+            sel_snapshot = max(sel_snapshot - 1, -1)
+            invalidated = True
+            return
+    if key == qkeys.Key_ParenRight:
+        s.f_last = s.f
+        s.f_last_path = s.det_frame_path(s.f)
+        return
 
     if key_mode == 'main':
         keydown_main(key, ctrl, shift, alt)
@@ -366,21 +409,22 @@ def keydown(key, ctrl, shift, alt):
 
 
 def keydown_action(key, ctrl, shift, alt):
-    global key_mode, action_page
+    global key_mode, sel_action_page
+    global invalidated
 
     qkeys = QtCore.Qt.Key
     session = renderer.session
 
     if key == qkeys.Key_Left:
-        action_page = max(0, action_page - 10)
+        sel_action_page = max(0, sel_action_page - 10)
     elif key == qkeys.Key_Right:
         max_page = len(discovered_actions) // 10
-        action_page += 10
-        action_page = min(action_page, max_page)
+        sel_action_page += 10
+        sel_action_page = min(sel_action_page, max_page)
 
     i = key - qkeys.Key_1
     if i in range(1, 9):
-        action_slice = discovered_actions[action_page:action_page + 10]
+        action_slice = discovered_actions[sel_action_page:sel_action_page + 10]
         if 1 <= i <= qkeys.Key_9:
             name, path = action_slice[i]
             s = f"discore {session.dirpath} {name} "
@@ -419,65 +463,65 @@ def keydown_main(key, ctrl, shift, alt):
 
     # Playback
     # ----------------------------------------
-    if key == user_conf.key_pause: renderer.pause()
-    if key == user_conf.key_seek_prev: renderer.seek(f - 1, True)
-    if key == user_conf.key_seek_next: renderer.seek(f + 1, True)
-    if key == user_conf.key_seek_prev_second: renderer.seek(f - session.fps, True)
-    if key == user_conf.key_seek_next_second: renderer.seek(f + session.fps, True)
-    if key == user_conf.key_seek_prev_percent: renderer.seek(f - int(f_last * user_conf.hobo_seek_percent), True)
-    if key == user_conf.key_seek_next_percent: renderer.seek(f + int(f_last * user_conf.hobo_seek_percent), True)
-    if key == user_conf.key_seek_first: renderer.seek(f_first, True)
-    if key == user_conf.key_seek_first_2: renderer.seek(f_first, True)
-    if key == user_conf.key_seek_first_3: renderer.seek(f_first, True)
-    if key == user_conf.key_seek_last or key == user_conf.key_seek_last_2:
+    if key == uiconf.key_pause: renderer.pause()
+    if key == uiconf.key_seek_prev: renderer.seek(f - 1, True)
+    if key == uiconf.key_seek_next: renderer.seek(f + 1, True)
+    if key == uiconf.key_seek_prev_second: renderer.seek(f - session.fps, True)
+    if key == uiconf.key_seek_next_second: renderer.seek(f + session.fps, True)
+    if key == uiconf.key_seek_prev_percent: renderer.seek(f - int(f_last * uiconf.hobo_seek_percent), True)
+    if key == uiconf.key_seek_next_percent: renderer.seek(f + int(f_last * uiconf.hobo_seek_percent), True)
+    if key == uiconf.key_seek_first: renderer.seek(f_first, True)
+    if key == uiconf.key_seek_first_2: renderer.seek(f_first, True)
+    if key == uiconf.key_seek_first_3: renderer.seek(f_first, True)
+    if key == uiconf.key_seek_last or key == uiconf.key_seek_last_2:
         renderer.seek(f_last, True)
         renderer.seek(f_last + 1, True)
 
     # Editing
     # ----------------------------------------
-    if key == user_conf.key_fps_down:
+    if key == uiconf.key_fps_down:
         session.fps = get_fps_stop(session.fps, -1)
-    if key == user_conf.key_fps_up:
+    if key == uiconf.key_fps_up:
         session.fps = get_fps_stop(session.fps, 1)
-    if key == user_conf.key_select_segment_prev and len(get_segments()):
+    if key == uiconf.key_select_segment_prev and len(get_segments()):
         current_segment = max(0, current_segment - 1)
         renderer.seek(get_segments()[current_segment][0])
-    if key == user_conf.key_copy_frame:
+    if key == uiconf.key_copy_frame:
         copied_frame = session.image_cv2
-    if key == user_conf.key_paste_frame:
+    if key == uiconf.key_paste_frame:
         if copied_frame is not None:
             session.image_cv2 = copied_frame
             session.save()
             session.save_data()
             renderer.invalidated = True
-    if key == user_conf.key_delete and shift:
+    if key == uiconf.key_delete and shift:
         if session.delete_f():
             renderer.invalidated = True
 
     # Rendering
     # ----------------------------------------
-    if key == user_conf.key_render:
+    if key == uiconf.key_render:
         if renderer.is_rendering and renderer.request_render:
             renderer.request_render = False
         elif renderer.is_rendering and not renderer.request_render:
             renderer.render('toggle')
         else:
             renderer.render('now')
-    if key == user_conf.key_toggle_hud:
+    if key == uiconf.key_toggle_hud:
         enable_hud = not enable_hud
-    if key == user_conf.key_set_segment_start:
+    if key == uiconf.key_set_segment_start:
         if len(get_segments()) and not f > get_segments()[current_segment][1]:
             get_segments()[current_segment] = (f, get_segments()[current_segment][1])
             session.save_data()
         else:
             create_segment(50)
-    if key == user_conf.key_set_segment_end:
+    if key == uiconf.key_set_segment_end:
         if len(get_segments()) and not f < get_segments()[current_segment][0]:
             get_segments()[current_segment] = (get_segments()[current_segment][0], f)
             session.save_data()
         else:
             create_segment(-50)
-    if key == user_conf.key_seek_prev_segment:
+    if key == uiconf.key_seek_prev_segment:
         indices = [i for s in get_segments() for i in s]
         indices.sort()
         # Find next value in indices that is less than session.f
@@ -485,7 +529,7 @@ def keydown_main(key, ctrl, shift, alt):
             if indices[i] < f:
                 renderer.seek(indices[i])
                 break
-    if key == user_conf.key_seek_next_segment:
+    if key == uiconf.key_seek_next_segment:
         indices = [i for s in get_segments() for i in s]
         indices.sort()
         # Find next value in indices that is greater than session.f
@@ -493,17 +537,17 @@ def keydown_main(key, ctrl, shift, alt):
             if indices[i] > f:
                 renderer.seek(indices[i])
                 break
-    if key == user_conf.key_select_segment_next and len(get_segments()):
+    if key == uiconf.key_select_segment_next and len(get_segments()):
         current_segment = min(len(get_segments()) - 1, current_segment + 1)
         renderer.seek(get_segments()[current_segment][0])
-    if key == user_conf.key_play_segment:
+    if key == uiconf.key_play_segment:
         lo, hi = get_segments()[current_segment]
         session.seek(lo)
         renderer.play_until = hi
         renderer.request_pause = False
         renderer.looping = True
         renderer.looping_start = lo
-    if key == user_conf.key_toggle_action_mode:
+    if key == uiconf.key_toggle_action_mode:
         key_mode = 'action'
 
 

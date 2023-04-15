@@ -12,7 +12,7 @@ import sys
 from yachalk import chalk
 
 import jargs
-import user_conf
+import userconf
 from src_core import installing, plugins
 from src_core.classes import paths, printlib
 from src_core.classes.common import setup_ctrl_c
@@ -97,7 +97,7 @@ def init(step=2, pluginstall=None):
             install_plugins()
         load_plugins()
 
-        if user_conf.print_extended_init:
+        if userconf.print_extended_init:
             print()
         logcore("READY")
         print("")
@@ -130,21 +130,22 @@ def install_core():
 
 
 def download_plugins():
-    if user_conf.print_extended_init:
+    if userconf.print_extended_init:
         print()
     logcore(chalk.green_bright("1. Downloading plugins"))
-    plugins.download([pdef.url for pdef in user_conf.plugins.values()])
+    plugins.download_git_urls([pdef.url for pdef in userconf.plugins.values()])
 
 
 def create_plugins(install=True):
-    if user_conf.print_extended_init:
+    if userconf.print_extended_init:
         print()
     logcore(chalk.green_bright("2. Initializing plugins"))
-    plugins.instantiate_plugins_by_url([pdef.url for pdef in user_conf.plugins.values()], install=install)
+    # plugins.instantiate_plugins_by_pids([pdef.url for pdef in userconf.plugins.values()], install=install)
+    # plugins.instantiate_plugins_in(paths.plugins, install=install)
 
 
 def install_plugins():
-    if user_conf.print_extended_init:
+    if userconf.print_extended_init:
         print()
     logcore(chalk.green_bright("3. Installing plugins..."))
 
@@ -161,17 +162,17 @@ def unload_plugins():
     def on_after(plug):
         plug.loaded = False
 
-    if user_conf.print_extended_init:
+    if userconf.print_extended_init:
         print()
     logcore(chalk.green_bright("Unloading plugins..."))
     plugins.broadcast("unload", "{id}", threaded=True, on_after=on_after)
 
 
 def load_plugins():
-    if user_conf.print_extended_init:
+    if userconf.print_extended_init:
         print()
     logcore(chalk.green_bright("3. Loading plugins..."))
-    plugins.load()
+    plugins.load(userconf_only=False)
 
 
 def log_jobs():
@@ -182,7 +183,7 @@ def log_jobs():
             strjid = str(j.jid)
             if j.is_alias:
                 strjid = chalk.dim(strjid)
-            if not user_conf.print_more2:
+            if not userconf.print_more2:
                 logcore(" -", strjid)
             else:
                 logcore(" -", f"{strjid} ({j.func})")

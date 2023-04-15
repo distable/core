@@ -41,18 +41,18 @@ def plugdef(url):
     from src_core.classes.paths import short_pid
 
     pid = short_pid(url)
-    mdef = Munchr(opt=Munchr())
+    mdef = Munchr()
     mdef.url = url
     mdef.load = False
 
     globals()['plugins'][pid] = mdef
-    return mdef.opt
+    return mdef
 
 
 def plugload(url):
     opt = plugdef(url)
     pid = short_pid(url)
-    globals()['plugins'][pid].load = True
+    opt.load = True
     return opt
 
 def hasplug(pid):

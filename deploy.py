@@ -4,13 +4,17 @@ import sys
 import time
 from pathlib import Path
 
-from jargs import args, original_args
+from paramiko.ssh_exception import NoValidConnectionsError
+from yachalk import chalk
+
+import jargs
+from jargs import args, argv
 from src_core.classes import paths
 from src_core.lib.corelib import open_in_explorer, shlexrun_err
 
 
 # User files/directories to copy at the start of a deployment
-deploy_rsync = ['requirements.txt',
+deploy_rsync = [('requirements-vastai.txt', 'requirements.txt'),
                 'discore.py',
                 'deploy.py',
                 'jargs.py',
@@ -20,6 +24,7 @@ deploy_rsync = ['requirements.txt',
                 paths.src_plugins_name]
 
 deploy_put = [paths.plug_res_name]
+deploy_put = []
 
 
 # Commands to run in order to setup a deployment
@@ -47,7 +52,10 @@ def deploy_local():
         subprocess.run(cmd)
 
     for file in deploy_rsync:
-        shutil.copyfile(src / file, dst / file)
+        if isinstance(file, tuple):
+            shutil.copyfile(src / file[0], dst / file[1])
+        if isinstance(file, str):
+            shutil.copyfile(src / file, dst / file)
 
     # 3. Run ~/discore_deploy/discore.py
     if platform.system() == "Linux":
@@ -55,13 +63,20 @@ def deploy_local():
 
     subprocess.run([dst / 'discore.py', '--upgrade'])
 
+def print_header(string):
+    print("")
+    print("----------------------------------------")
+    print(chalk.green(string))
+    print("----------------------------------------")
+    print("")
+
 def deploy_vastai():
     """
     Deploy onto cloud.
     """
     import interactive
     import paramiko
-    import user_conf
+    import userconf
     import json
     from src_core.deploy.sftpclient import sshexec
 
@@ -69,7 +84,7 @@ def deploy_vastai():
     # 2. Prompt the user to choose one
     # 3. Connect to it with SSH
     # 4. Git clone the core repository
-    # 5. Upload our user_conf
+    # 5. Upload our userconf
     # 6. Launch discore
     # 7. Connect our core to it
     # ----------------------------------------
@@ -83,8 +98,8 @@ def deploy_vastai():
     # Run vast command and parse its output
 
     def fetch_offers():
-        import user_conf
-        out = subprocess.check_output(['python3', vastpath.as_posix(), 'search', 'offers', args.vastai_search or user_conf.vastai_default_search]).decode('utf-8')
+        import userconf
+        out = subprocess.check_output(['python3', vastpath.as_posix(), 'search', 'offers', args.vastai_search or userconf.vastai_default_search]).decode('utf-8')
         # Example output:
         # ID       CUDA  Num  Model     PCIE  vCPUs    RAM  Disk   $/hr    DLP    DLP/$  NV Driver   Net_up  Net_down  R     Max_Days  mach_id  verification
         # 5563966  11.8  14x  RTX_3090  12.7  64.0   257.7  1672   5.8520  341.8  58.4   520.56.06   23.1    605.7     99.5  22.4      6294     verified
@@ -227,6 +242,8 @@ def deploy_vastai():
 
             time.sleep(3)
 
+        time.sleep(3)
+
     # 2. Wait for instance to be ready
     # ----------------------------------------
     instance = wait_for_instance(selected_id)
@@ -257,101 +274,136 @@ def deploy_vastai():
             # This can fail when the instance just launched
             ssh.connect(ip, port=int(port), username='root')
             break
-        except e:
+        except NoValidConnectionsError as e:
             print(f"Failed to connect ({e}), retrying...")
             time.sleep(3)
 
     from src_core.deploy.sftpclient import SFTPClient
     sftp = SFTPClient.from_transport(ssh.get_transport())
     sftp.max_size = 10 * 1024 * 1024
-    sftp.urls = user_conf.deploy_urls
+    sftp.urls = []
+    if hasattr(userconf, 'deploy_urls'):
+        sftp.urls = userconf.deploy_urls
     sftp.ssh = ssh
     sftp.enable_urls = not args.vastai_no_download
     sftp.ip = ip
     sftp.port = port
 
+
     def sshexec(ssh, cm, cwd=None, require_output=False):
         cm = cm.replace("'", '"')
         if cwd is not None:
             cm = f"cd {cwd}; {cm}"
-        return os.popen(f"{kitty_cmd} '{cm}'").read()
+        proc = subprocess.Popen(f"{ssh_cmd} '{cm}'", shell=True)
+        ret = proc.wait()
+        return ret
 
     def file_exists(ssh, path):
-        out = sshexec(ssh, f"stat '{path}'", require_output=True)
-        print(out)
-        return 'No such file or directory' not in out
+        ret = sshexec(ssh, f"stat '{path}'", require_output=True)
+        return ret == 0
+        # print(out)
+        # return 'No such file or directory' not in out
 
-    if user_conf.vastai_sshfs:
-        print(chalk.green("Mounting with sshfs..."))
-        # Use sshfs to mount the machine
-        d = Path(user_conf.vastai_sshfs_path).expanduser() / 'discore_deploy'
-        d.mkdir(parents=True, exist_ok=True)
-        os.system(f"umount {d}")
-        os.system(f"sshfs root@{ip}:/workspace -p {port} {d}")
+    # sshexec(ssh, f'rm -rf ')
 
-    # ----------------------------------------
     src = paths.root
     dst = Path("/workspace/discore_deploy")
+    is_fresh_install = not file_exists(ssh, dst) and not args.vastai_continue
 
-    repo_existed = file_exists(ssh, dst)
+    mountdir = None
+    if userconf.vastai_sshfs:
+        print_header("Mounting with sshfs...")
+        # Use sshfs to mount the machine
+        mountdir = Path(userconf.vastai_sshfs_path).expanduser() / 'discore_deploy'
+        mountdir.mkdir(parents=True, exist_ok=True)
 
-    if not args.vastai_continue or not repo_existed:
-        sshexec(ssh, f"rm -rf {dst}")
+        not_mounted = subprocess.Popen(f"mountpoint -q {mountdir}", shell=True).wait()
+        if not_mounted > 0:
+            os.system(f"sshfs root@{ip}:/workspace -p {port} {mountdir}")
 
-        # Deployment steps
-        # ----------------------------------------
-        print(chalk.green("Deployment commands..."))
+        if is_fresh_install:
+            mountdir = Path(userconf.vastai_sshfs_path).expanduser()
+            open_in_explorer(mountdir)
+
+
+    if is_fresh_install:
+        if file_exists(ssh, dst):
+            print(chalk.red("Removing old deploy..."))
+            sshexec(ssh, f"rm -rf {dst}")
+
+        print_header("Cloning")
         cmds = get_deploy_commands(dst.as_posix())
         for cmd in cmds:
             sshexec(ssh, ' '.join(cmd))
 
-        # ----------------------------------------
+        print_header("Installing system libraries...")
         sshexec(ssh, f"apt-get install python3-venv -y")
         sshexec(ssh, f"apt-get install libgl1 -y")
         sshexec(ssh, f"apt-get install zip -y")
+        sshexec(ssh, f"apt-get install ffmpeg -y")
         sshexec(ssh, f"chmod +x {dst / 'discore.py'}")
         # sshexec(ssh, f"rm -rf {dst / 'venv'}")
 
     # ----------------------------------------
-    if not args.vastai_continue or args.vastai_copy or not repo_existed:
-        print("")
-        print(chalk.green("Copying user files..."))
-        if user_conf.vastai_sshfs and not repo_existed:
-            d = Path(user_conf.vastai_sshfs_path).expanduser()
-            open_in_explorer(d)
-
+    if is_fresh_install or args.vastai_copy:
+        print_header("File copies...")
         for file in deploy_rsync:
-            src_file = src / file
-            dst_file = dst / file
-            sftp.put_any(src_file, dst_file)
+            if isinstance(file, str):
+                sftp.put_any(src / file, dst / file)
+            if isinstance(file, tuple):
+                sftp.put_any(src / file[0], dst / file[1])
 
         for file in deploy_put:
-            src_file = src / file
-            dst_file = dst / file
-            sftp.put_any(src_file, dst_file, forbid_rsync=True)
+            if isinstance(file, str):
+                sftp.put_any(src / file, dst / file, forbid_rsync=True)
+            if isinstance(file, tuple):
+                sftp.put_any(src / file[0], dst / file[1], forbid_rsync=True)
+
 
         sftp.close()
 
     # Open a shell
     if args.shell:
-        print(chalk.green("--shell"))
+        print_header("user --shell")
         # Start a ssh shell for the user
         channel = ssh.invoke_shell()
         interactive.interactive_shell(channel)
 
-    # Start a ssh shell for the user
-    launch_cmd = f"{kitty_cmd} 'cd /workspace/discore_deploy/; /opt/conda/bin/python3 {dst / 'discore.py'} --upgrade --no_venv'"
-    os.system(launch_cmd)
+    if is_fresh_install:
+        print_header("Discore pip refresh")
+        launch_cmd = f"{ssh_cmd} 'cd /workspace/discore_deploy/; /opt/conda/bin/python3 {dst / 'discore.py'} --upgrade --no_venv'"
+        os.system(launch_cmd)
 
-    launch_cmd = f"{kitty_cmd} 'cd /workspace/discore_deploy/; /opt/conda/bin/python3 {dst / 'discore.py'} --install --dry'"
-    os.system(launch_cmd)
+        print_header("Discore plugin install")
+        launch_cmd = f"{ssh_cmd} 'cd /workspace/discore_deploy/; /opt/conda/bin/python3 {dst / 'discore.py'} --install --dry'"
+        os.system(launch_cmd)
+
+    # Transfer the session state
+    s = jargs.get_discore_session()
+    if s is not None and s.dirpath.exists():
+        print_header(f"Copying work session '{s.dirpath.stem}'")
+
+        dst_session = dst / 'sessions' / s.dirpath.stem
+        sftp.put_any(s.dirpath, dst_session, forbid_recursive=True)
+
+        # Open in nvim
+        # if s.res("script.py").exists() and userconf.vastai_sshfs:
+        #     d = mountdir / 'discore_deploy' / paths.sessions_name / s.dirpath.stem / 'script.py'
+        #     subprocess.Popen(f"kitty nvim {d}", shell=True)
+
+        # sftp.mkdir(str(dst_session))
+        # # Iterate files in dirpath
+        # for file in s.dirpath.iterdir():
+        #     # If the stem is not an int
+        #     if not file.stem.isnumeric():
+        #         sftp.put_any(str(file), str(dst_session / file.name), forbid_rsync=True)
 
     continue_work = True
     import threading
     def vastai_job():
-        launch_cmd = f"{kitty_cmd} 'cd /workspace/discore_deploy/; /opt/conda/bin/python3 {dst / 'discore.py'}"
+        launch_cmd = f"{ssh_cmd} 'cd /workspace/discore_deploy/; /opt/conda/bin/python3 {dst / 'discore.py'}"
 
-        oargs = original_args
+        oargs = argv
         safe_list_remove(oargs, '--vastai')
         safe_list_remove(oargs, '--vai')
         safe_list_remove(oargs, '--vastai_continue')
@@ -360,23 +412,27 @@ def deploy_vastai():
 
         launch_cmd += f' --remote'
         launch_cmd += f' --no_venv'
-        if not repo_existed or not args.vastai_continue:
+        launch_cmd += f' --cli'
+        if is_fresh_install:
             launch_cmd += f' --install'
 
-        # TODO get jargs session and transfer it
-
         launch_cmd += "'"
+
+        print_header("Launching discore for work ...")
+        print("")
+        print(f'> {launch_cmd}')
         os.system(launch_cmd)
 
     def rsync_job():
         """
         Rsync the session every 5 second
         """
+        import jargs
+        n = jargs.get_discore_session()
+
         while continue_work:
             time.sleep(5)
-            import jargs
-            n = jargs.get_discore_session()
-            src2 = dst / paths.sessions_name / n
+            src2 = dst / paths.sessions_name / n.name
             dst2 = src / paths.sessions_name
             os.system(f"rsync -az -e 'ssh -p {port}' root@{ip}:{src2} {dst2}")
 

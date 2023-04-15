@@ -35,20 +35,20 @@ class SFTPClient(paramiko.SFTPClient):
         self.rsync = True
         self.ip = None
         self.port = None
-        self.print_rsync = False
+        self.print_rsync = True
 
-    def put_any(self, source, target, forbid_rsync=False):
+    def put_any(self, source, target, forbid_rsync=False, forbid_recursive=False):
         source = Path(source)
         target = Path(target)
 
         if source.is_dir():
             self.mkdir(target.as_posix(), ignore_existing=True)
-            self.put_dir(source.as_posix(), target.as_posix(), forbid_rsync=forbid_rsync)
+            self.put_dir(source.as_posix(), target.as_posix(), forbid_rsync=forbid_rsync, forbid_recursive=forbid_recursive)
         else:
             print(f"Uploading {source.as_posix()} to {target.as_posix()}")
             self.put(source.as_posix(), target.as_posix())
 
-    def put_dir(self, source, target, forbid_rsync=False, ignore_exts=[]):
+    def put_dir(self, source, target, *, forbid_rsync=False, ignore_exts=[], forbid_recursive=False):
         """
         Uploads the contents of the source directory to the target path. The
         target directory needs to exists. All subdirectories in source are
@@ -61,8 +61,10 @@ class SFTPClient(paramiko.SFTPClient):
             flag = ''
             if self.print_rsync:
                 flag = 'v'
+            if not forbid_recursive:
+                flag += 'r'
 
-            cm = f"rsync -az{flag} -e 'ssh -p {self.port}' {source} root@{self.ip}:{Path(target).parent}"
+            cm = f"rsync -rlptgoDz{flag} -e 'ssh -p {self.port}' {source} root@{self.ip}:{Path(target).parent}"
             # print(cm)
             os.system(cm)
             return

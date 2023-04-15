@@ -2,13 +2,13 @@
 # opening it as a session
 # ----------------------------------------
 
-import user_conf
+import userconf
 from src_core import core, plugins
 
 folder_name = '/home/nuck/discore/sessions/2022-11-04_20h01/'
 
 if __name__ == "__main__":
-    assert user_conf.hasplug('kupscale'), "This test requires kupscale"
+    assert userconf.hasplug('kupscale'), "This test requires kupscale"
 
     core.init()
     core.open0(folder_name)

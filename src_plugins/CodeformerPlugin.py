@@ -30,7 +30,7 @@ def setup_model(dirname):
     if not os.path.exists(model_path):
         os.makedirs(model_path)
 
-    path = paths.paths.get_plug("CodeFormer", None)
+    path = paths.paths.get("CodeFormer", None)
     if path is None:
         return
 

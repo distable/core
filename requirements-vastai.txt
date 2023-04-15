@@ -7,7 +7,6 @@ diffusers
 # fonts
 # font-roboto
 numpy==1.23.5
-cupy-wheel
 omegaconf~=2.2.3
 piexif~=1.1.3
 Pillow~=9.4.0
@@ -91,6 +90,4 @@ tomesd
 git+https://github.com/facebookresearch/segment-anything.git
 controlnet-aux==0.0.2
 # git+https://github.com/isl-org/MiDaS.git
-PyQt6
-pyqtgraph~=0.13.1
-pygame~=2.1.2
+cupy-cuda11x

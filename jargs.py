@@ -14,11 +14,11 @@ argp.add_argument('--remote', action='store_true', help='Indicates that we are r
 argp.add_argument('--dev', action='store_true', help='Use a development environment to test the setup.')
 argp.add_argument('--ryusig', action='store_true', help='Use the ryusig calculator.')
 argp.add_argument('--print', action='store_true', help='Enable printing.')
-argp.add_argument('--profile', action='store_true', help='Profile the entire script frame by frame.')
-argp.add_argument('--profile_jobs', action='store_true', help='Profile each job one by one.')
-argp.add_argument('--profile_session_run', action='store_true', help='Profile session.run')
-argp.add_argument('--profile_session_load', action='store_true', help='Profile session.load')
-argp.add_argument('--profile_run_job', action='store_true', help='Profile jobs.run')
+argp.add_argument('--trace', action='store_true', help='Enable tracing.')
+argp.add_argument('--trace_jobs', action='store_true', help='Profile each job one by one.')
+argp.add_argument('--trace_session_run', action='store_true', help='Profile session.run')
+argp.add_argument('--trace_session_load', action='store_true', help='Profile session.load')
+argp.add_argument('--trace_run_job', action='store_true', help='Profile jobs.run')
 argp.add_argument("--recreate_venv", action="store_true")
 argp.add_argument("--no_venv", action="store_true")
 argp.add_argument('--upgrade', action='store_true', help='Upgrade to latest version')
@@ -63,9 +63,13 @@ sys.argv = [sys.argv[0]]
 is_vastai = args.vastai or args.vastai_continue
 
 
-def get_discore_session(load=True):
+def get_discore_session(load=True, *, nosubdir=False):
     from src_core.classes.Session import Session
-    return Session(args.session or args.action or args.script, load=load).subsession(args.subdir)
+    s = Session(args.session or args.action or args.script, load=load)
+    if not nosubdir:
+        s = s.subsession(args.subdir)
+
+    return s
 
 
 def framerange():

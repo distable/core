@@ -1,11 +1,11 @@
-import user_conf
+import userconf
 
 from src_core import core
 from src_core.classes.Session import Session
 
 if __name__ == "__main__":
-    assert user_conf.hasplug('sd1111'), "This test requires sd1111"
-    assert user_conf.hasplug('opticalflow'), "This test requires optical flow"
+    assert userconf.hasplug('sd1111'), "This test requires sd1111"
+    assert userconf.hasplug('opticalflow'), "This test requires optical flow"
 
     core.init()
 

@@ -4,6 +4,7 @@ from math import sqrt
 
 from numpy import ndarray
 
+import jargs
 from src_core.classes.printlib import pct
 from src_core.rendering.hud import hud
 
@@ -99,8 +100,15 @@ class RenderVars(SessionVars):
         self.draft = 1
         self.dry = False
         self.signals = {}
+        self.snapshots = []
 
         self.set_defaults()
+
+    def snap(self, name, img=None):
+        if img is None:
+            img = self.session.image_cv2.copy()
+        self.snapshots.append((name, img))
+
 
     def set_defaults(self):
         v = self
@@ -109,6 +117,12 @@ class RenderVars(SessionVars):
         v.d, v.chg, v.cfg, v.seed, v.sampler = 1.1, 1.0, 16.5, 0, 'euler-a'
         v.nguide, v.nsp = 0, 0
         v.smear = 0
+
+        self.w = 640
+        self.h = 448
+        if jargs.args.remote:
+            self.w = 768
+            self.h = 512
 
     def resolution(self, w, h, *, frac=64, draft=0, remote=None):
         draft += 1
@@ -132,6 +146,7 @@ class RenderVars(SessionVars):
         v.dt = 1 / v.fps
         v.ref = 1 / 12 * v.fps
         v.tr = v.t * v.ref
+        v.snapshots.clear()
 
     def set(self, **kwargs):
         protected_names = ['session', 'signals', 't', 'f', 'dt', 'ref', 'tr', 'w2', 'h2', 'len']

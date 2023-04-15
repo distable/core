@@ -4,7 +4,7 @@ import threading
 import flask_socketio as fsock
 from flask import Flask, request
 
-import user_conf
+import userconf
 from src_core import core, jobs, plugins, shell
 from src_core.classes.common import wserialize, extract_dict
 from src_core.classes.logs import logserver
@@ -17,7 +17,7 @@ class _Client:
         self.sid = sid
 
         prefix = sid
-        if not user_conf.share:
+        if not userconf.share:
             prefix = ''
         self.session = Session.now(prefix=prefix)
 
@@ -65,8 +65,8 @@ clients = {}
 
 def run():
     def serve():
-        logserver(f"Serving on {user_conf.ip}:{user_conf.port}")
-        sock.run(app, host=user_conf.ip, port=user_conf.port)
+        logserver(f"Serving on {userconf.ip}:{userconf.port}")
+        sock.run(app, host=userconf.ip, port=userconf.port)
 
 
     # Serve with waitress on a separate thread

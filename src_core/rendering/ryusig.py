@@ -1,7 +1,7 @@
 import threading
 
-from PyQt5 import QtCore
-from PyQt5.QtCore import QCoreApplication
+from PyQt6 import QtCore
+from PyQt6.QtCore import QCoreApplication
 
 from src_core.rendering import renderer
 from src_plugins.ryusig_calc.RyusigApp import RyusigApp

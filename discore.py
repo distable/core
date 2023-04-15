@@ -6,15 +6,17 @@ import os
 import shutil
 import sys
 from pathlib import Path
-
 from jargs import argp, args, spaced_args
+
+sys.path.append(Path(__file__).parent.as_posix())
+sys.path.append((Path(__file__).parent / 'src_core').as_posix())
 
 logging.captureWarnings(True)
 logging.getLogger("py.warnings").setLevel(logging.ERROR)
 
 os.chdir(Path(__file__).parent)
 
-DEFAULT_ACTION = None
+DEFAULT_ACTION = 'r'
 VENV_DIR = "venv"
 
 # The actual script when launched as standalone
@@ -292,13 +294,13 @@ def main():
 
 from src_core.classes import printlib
 from src_core import core
-import user_conf
+import userconf
 
-printlib.print_timing = user_conf.print_timing
-printlib.print_trace = user_conf.print_trace
-printlib.print_gputrace = user_conf.print_gputrace
+printlib.print_timing = userconf.print_timing
+printlib.print_trace = userconf.print_trace
+printlib.print_gputrace = userconf.print_gputrace
 
-if user_conf.print_extended_init:
+if userconf.print_extended_init:
     from src_core import installing
     installing.print_info()
     print()

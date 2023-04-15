@@ -34,7 +34,7 @@ from pathlib import Path
 from yachalk import chalk
 
 import jargs
-import user_conf
+import userconf
 from jargs import args, get_discore_session
 from src_core.lib.corelib import invoke_safe
 from src_core.classes import paths
@@ -207,6 +207,8 @@ def init(s=None, scriptname='', gui=True, main_thread=True):
 
     Returns:
     """
+    from PIL import Image
+
     global initialized
     global is_main_thread, is_dev, is_gui
     global session, script_name
@@ -220,12 +222,6 @@ def init(s=None, scriptname='', gui=True, main_thread=True):
     session = s or get_discore_session()
     v.reset(0, session)
 
-    # Load the script
-    # ----------------------------------------
-    with trace('Script loading'):
-        from PIL import Image
-        invoke_safe(load_script, unsafe=unsafe)
-
     # Setup the session
     # ----------------------------------------
     session.width = v.w
@@ -236,6 +232,11 @@ def init(s=None, scriptname='', gui=True, main_thread=True):
     # Initialize the core
     # ----------------------------------------
     core.init(pluginstall=args.install)
+
+    # Load the script
+    # ----------------------------------------
+    with trace('Script loading'):
+        invoke_safe(load_script, unsafe=unsafe)
 
     # GUI setup
     # ----------------------------------------
@@ -257,10 +258,11 @@ def ui_thread_loop():
     global request_stop
 
     import pyqtgraph
-    from PyQt5 import QtCore, QtGui
-    from PyQt5.QtWidgets import QApplication
+    from PyQt6 import QtCore, QtGui
+    from PyQt6.QtWidgets import QApplication
     pyqtgraph.mkQApp("Discore")
 
+    from src_plugins.ryusig_calc.AudioPlayback import AudioPlayback
     audio.init(v.wavs or session.res_music(optional=True), root=session.dirpath)
 
     hobo.init()
@@ -283,7 +285,7 @@ def ui_thread_loop():
     # app.exec_()
     import sys
     if (sys.flags.interactive != 1) or not hasattr(QtCore, 'PYQT_VERSION'):
-        QApplication.instance().exec_()
+        QApplication.instance().exec()
     global request_stop
 
     request_stop = True
@@ -382,7 +384,7 @@ def loop(lo=None, hi=math.inf, callback=None, inner=False):
                     if session.f <= session.f_last:
                         session.seek_new()
 
-                    with cpuprofile(args.profile):
+                    with cpuprofile(args.trace):
                         yield session.f
 
                     if not is_dev:
@@ -450,7 +452,7 @@ def frame(f=None, scalar=1, s=None, dry=False):
 
     # Start the HUD
     ss = f'frame {v.f} | {v.t:.2f}s ----------------------'
-    if not user_conf.print_jobs:
+    if not userconf.print_jobs:
         print("")
         print(ss)
     hud(ss)

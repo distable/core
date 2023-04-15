@@ -3,7 +3,7 @@ import re
 
 from munch import Munch
 
-import user_conf
+import userconf
 from src_core.classes.prompt_job import prompt_job
 from src_core.classes.JobArgs import JobArgs
 from src_core.plugins import plugjob
@@ -11,8 +11,8 @@ from src_core.classes.Plugin import Plugin
 
 all_wildcards: dict[str, list[str]] = Munch()
 
-if hasattr(user_conf, 'wildcards'):
-    all_wildcards = user_conf.wildcards
+if hasattr(userconf, 'wildcards'):
+    all_wildcards = userconf.wildcards
 
 class add_params(JobArgs):
     def __init__(self, wname: str, pool: list[str], **kwargs):

@@ -16,7 +16,7 @@ from src_plugins.disco_party.maths import clamp01
 from python_color_transfer.color_transfer import ColorTransfer, Regrain
 from pathlib import Path
 
-from src_plugins.opticalflow_plugin.__conf__ import half
+from src_plugins.opticalflow.__conf__ import half
 
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'TRUE'
 

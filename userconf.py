@@ -1,5 +1,4 @@
 import torch
-from PyQt5 import QtCore
 
 import jargs
 from src_core.conf import *
@@ -9,38 +8,44 @@ share = False
 torch.set_float32_matmul_precision('high')
 # torch.backends.cudnn.benchmark = True
 
+# ignore_plugins = [
+#     'kandinsky',
+#     'paella',
+#     'midas3d',
+#     'sd1111',
+#     'glsl'
+# ]
+
 # Core
 # ----------------------------------------
 
 precision = "full"
-enable_print = jargs.args.print
-print_timing = enable_print
-print_trace = False
-print_gputrace = enable_print
-print_extended_init = enable_print
-print_more2 = enable_print
-print_jobs = enable_print
+print_timing = jargs.args.print
+print_trace = jargs.args.trace
+print_gputrace = jargs.args.print
+print_extended_init = jargs.args.print
+print_more2 = jargs.args.print
+print_jobs = jargs.args.print
 
-# Plugins
 # ----------------------------------------
 
-plugload('copyres')
-plugload('distable/disco-party')
-plugload('distable/ryusig-calc')
+# plugload('distable/disco-party')
+# plugload('distable/ryusig-calc')
 
 sd = plugdef('sd_diffusers_plugin')
 # sd1111 = plugdef('distable/sd1111_plugin')
 
 # paella = plugload('paella')
 # kup = plugdef('kupscale')
-wc = plugload('wildcard')
-mgk = plugload('magick')
-m2d = plugload('math2d')
-# m3d = plugdef('midas3d')
-flo = plugload('opticalflow')
-edgedet = plugload('edgedet')
-noise = plugload('spnoise')
-glsl = plugload('glsl')
+# wc = plugload('wildcard')
+# mgk = plugload('magick')
+# m2d = plugload('math2d')
+# # m3d = plugdef('midas3d')
+# flo = plugload('opticalflow')
+# edgedet = plugload('edgedet')
+# noise = plugload('spnoise')
+# glsl = plugload('glsl')
+# unimatch = plugload('unimatch')
 
 # sd1111.attention = 4
 # sd1111.bit8 = False
@@ -73,60 +78,26 @@ vastai_default_search = "gpu_name=RTX_3090"
 vastai_sshfs = True  # Mount via sshfs
 vastai_sshfs_path = "~/discore/mount/"
 
-deploy_urls = {
-    'sd-v1-5.ckpt': 'https://huggingface.co/runwayml/stable-diffusion-v1-5/resolve/main/v1-5-pruned-emaonly.ckpt',
-    'vae.vae.pt'  : 'https://huggingface.co/stabilityai/sd-vae-ft-mse-original/resolve/main/vae-ft-mse-840000-ema-pruned.ckpt',
-}
+# deploy_urls = {
+#     'sd-v1-5.ckpt': 'https://huggingface.co/runwayml/stable-diffusion-v1-5/resolve/main/v1-5-pruned-emaonly.ckpt',
+#     'vae.vae.pt'  : 'https://huggingface.co/stabilityai/sd-vae-ft-mse-original/resolve/main/vae-ft-mse-840000-ema-pruned.ckpt',
+# }
 
 if jargs.args.remote:
     print("----------------------------------------")
     print("Activating remote arguments")
     print("----------------------------------------")
-    sd1111.medvram = False
-    sd1111.lowvram = False
-    sd1111.precision = 'half'
-    sd1111.no_half = False
-    sd1111.no_half_vae = False
-    sd1111.batch_cond_uncond = True
+    sd.load = True
+    # sd1111.medvram = False
+    # sd1111.lowvram = False
+    # sd1111.precision = 'half'
+    # sd1111.no_half = False
+    # sd1111.no_half_vae = False
+    # sd1111.batch_cond_uncond = True
     # jargs.args.zip_every = 120
 
 # GUI config
 # ----------------------------------------
-
-hobo_seek_percent = 1 / 15
-
-qkeys = QtCore.Qt.Key
-key_pause = qkeys.Key_Space
-
-key_seek_prev = qkeys.Key_Left
-key_seek_next = qkeys.Key_Right
-key_seek_prev_second = qkeys.Key_Up
-key_seek_next_second = qkeys.Key_Down
-key_seek_prev_percent = qkeys.Key_PageUp
-key_seek_next_percent = qkeys.Key_PageDown
-key_seek_first = qkeys.Key_Home
-key_seek_first_2 = qkeys.Key_H
-key_seek_first_3 = qkeys.Key_0
-key_seek_last = qkeys.Key_N
-key_seek_last_2 = qkeys.Key_End
-
-key_fps_down = qkeys.Key_BracketLeft
-key_fps_up = qkeys.Key_BracketRight
-key_copy_frame = qkeys.Key_C
-key_paste_frame = qkeys.Key_V
-key_delete = qkeys.Key_Delete
-key_render = qkeys.Key_Return
-key_toggle_hud = qkeys.Key_F
-key_toggle_action_mode = qkeys.Key_W
-
-key_select_segment_prev = qkeys.Key_Less
-key_select_segment_next = qkeys.Key_Greater
-key_set_segment_start = qkeys.Key_I
-key_set_segment_end = qkeys.Key_O
-key_seek_prev_segment = qkeys.Key_Comma
-key_seek_next_segment = qkeys.Key_Period
-key_play_segment = qkeys.Key_P
-
 
 
 # # Plugin config

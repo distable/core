@@ -1,8 +1,8 @@
-import user_conf
+import userconf
 from src_core import core, plugins
 
 if __name__ == "__main__":
-    assert user_conf.hasplug('sd1111'), "This test requires sd1111"
+    assert userconf.hasplug('sd1111'), "This test requires sd1111"
 
     core.init(1)
 
