@@ -119,8 +119,8 @@ def load(paella_ckpt, vqgan_ckpt, prior_ckpt):
         torchvision.transforms.Normalize(mean=(0.48145466, 0.4578275, 0.40821073), std=(0.26862954, 0.26130258, 0.27577711)),
     ])
 
-    t5_tokenizer = AutoTokenizer.from_pretrained("google/byt5-small")  # change with "t5-b3" for the 10GB model LoL
-    t5_model = T5EncoderModel.from_pretrained("google/byt5-small").to(device).requires_grad_(False)
+    t5_tokenizer = AutoTokenizer.from_pretrained("google/byt5-xl")  # change with "t5-b3" for the 10GB model LoL
+    t5_model = T5EncoderModel.from_pretrained("google/byt5-xl").to(device).requires_grad_(False)
 
     prior_ckpt = torch.load(prior_ckpt, map_location=device)
     prior = PriorModel().to(device)

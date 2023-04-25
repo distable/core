@@ -3,11 +3,11 @@ import threading
 from PyQt6 import QtCore
 from PyQt6.QtCore import QCoreApplication
 
-from src_core.rendering import renderer
 from src_plugins.ryusig_calc.RyusigApp import RyusigApp
 
 initialized = False
 app:RyusigApp|None = None
+rv = None
 
 def toggle():
     if not initialized:
@@ -23,6 +23,7 @@ def toggle():
 
 
 def on_t_selected_ryusig(t):
+    from src_core.rendering import renderer
     renderer.seek_t(t, False)
 
 
@@ -37,6 +38,7 @@ def on_script_loaded():
 def init():
     global initialized
     from src_plugins.ryusig_calc.RyusigApp import RyusigApp
+    from src_core.rendering import renderer
     global app
 
     renderer.on_t_changed.append(on_t_selected_renderer)
@@ -44,7 +46,7 @@ def init():
 
     app = RyusigApp(
             callback_mod=renderer.script,
-            callback_vars=renderer.v,
+            callback_vars=rv,
             audio=renderer.audio)
 
     app.init_qapp()

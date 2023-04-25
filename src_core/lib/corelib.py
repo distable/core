@@ -35,15 +35,19 @@ def open_in_explorer(path):
         raise Exception(f"open_in_explorer: Unsupported OS '{os.name}' ")
 
 
-def shlexrun(cmd, **kwargs):
+def shlexrun(cmd, print_cmd=True, shell=False, **kwargs):
     import shlex
     import subprocess
-    print(cmd)
-    return subprocess.run(shlex.split(cmd), **kwargs)
+    if print_cmd:
+        from yachalk import chalk
+        print(chalk.grey(f"> {cmd}"))
+    proc = subprocess.Popen(shlex.split(cmd), shell=shell, **kwargs)
+    proc.wait()
+    return proc
 
 
-def shlexrun_err(cm):
-    proc = shlexrun(cm, stderr=subprocess.STDOUT, stdout=subprocess.PIPE, shell=True)
+def shlexrun_err(cm, print_cmd=True):
+    proc = shlexrun(cm, print_cmd=print_cmd, stderr=subprocess.STDOUT, stdout=subprocess.PIPE, shell=True)
     return proc.stdout.decode('utf-8')
 
 

@@ -25,7 +25,7 @@ print_trace = jargs.args.trace
 print_gputrace = jargs.args.print
 print_extended_init = jargs.args.print
 print_more2 = jargs.args.print
-print_jobs = jargs.args.print
+print_frames = True # jargs.args.print
 
 # ----------------------------------------
 

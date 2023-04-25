@@ -50,12 +50,12 @@ def pipreqs(file):
 def check_run_python(code):
     return check_run(f'"{python}" -c "{code}"')
 
-def run(command, log: bool | str | None = False, err=None):
+def run(command, log: bool | str | None = True, err=None):
     if log:
         if isinstance(log, str):
             print(log)
         elif log is True:
-            print(f"  >> {command}")
+            print(f"> {command}")
 
     result = subprocess.run(command, shell=True) # stdout=subprocess.PIPE, stderr=subprocess.PIPE,
 
@@ -88,8 +88,10 @@ def gitclone(giturl, hash='master', into_dir=None, name=None):
 
     if not skip_installations:
         if not clone_dir.exists():
+            print("WTF")
             run(f'"{git}" clone {giturl} {Path(clone_dir)}')
         else:
+            print("YO")
             current_hash = run(f'"{git}" -C {clone_dir} rev-parse HEAD', err=f"Couldn't determine {name}'s hash: {hash}")
             if current_hash != hash:
                 run(f'"{git}" -C {clone_dir} fetch', err=f"Couldn't fetch {name}")
@@ -161,4 +163,11 @@ def open_explorer(directory):
 
 def wget(file, url):
     if not file.exists():
-        run(f'wget {url} --output-document {file.as_posix()}', err=f"Couldn't download {file.name}")
+        run(f"wget '{url}' --output-document {file.as_posix()}", err=f"Couldn't download {file.name}")
+        print(f'"wget {url} --output-document {file.as_posix()}"')
+
+def gdown(file, url):
+    import gdown
+    if not file.exists():
+        gdown.download(url, file.as_posix(), quiet=False)
+        print(f'"gdown {url} {file.as_posix()}"')

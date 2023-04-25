@@ -62,17 +62,16 @@ class Watcher(object):
                 "File changed: %s" % os.path.realpath(f)
                 self.mtimes[f] = mtime
                 if execute:
-                    self.execute()
-                    break
+                    self.execute(f)
 
-    def execute(self):
+    def execute(self, f):
         if self.verbose: print
         "Running commands at %s" % (datetime.datetime.now(),)
         for c in self.cmds:
             if isinstance(c, str):
                 os.system(c)
             elif callable(c):
-                c()
+                c(f)
 
         self.num_runs += 1
         return self.num_runs

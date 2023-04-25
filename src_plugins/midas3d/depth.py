@@ -213,7 +213,7 @@ class DepthModel:
             depth = np.expand_dims(depth, axis=0)
         self.depth_min = min(self.depth_min, depth.min())
         self.depth_max = max(self.depth_max, depth.max())
-        print(f"  depth min:{depth.min()} max:{depth.max()}")
+        # print(f"  depth min:{depth.min()} max:{depth.max()}")
         denom = max(1e-8, self.depth_max - self.depth_min)
 
         temp_image = rearrange((depth - self.depth_min) / denom * 255, 'c h w -> h w c')
@@ -227,7 +227,7 @@ class DepthModel:
             depth = np.expand_dims(depth, axis=0)
         self.depth_min = min(self.depth_min, depth.min())
         self.depth_max = max(self.depth_max, depth.max())
-        print(f"  depth min:{depth.min()} max:{depth.max()}")
+        # print(f"  depth min:{depth.min()} max:{depth.max()}")
         denom = max(1e-8, self.depth_max - self.depth_min)
         denom_bitdepth_multiplier = {
             8 : 255,

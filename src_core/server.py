@@ -99,7 +99,7 @@ def index():
 def connect():
     logserver('Client connected')
     c = Client()
-    c.emit('welcome', dict(
+    c._emit('welcome', dict(
             session=c.session,
             plugins=[extract_dict(p, 'id', 'title', 'describe') for p in plugins.alls],
             jobs=plugins.get_jobs(),

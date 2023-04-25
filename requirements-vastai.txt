@@ -1,15 +1,18 @@
-torch
+torch==2.0.0
 accelerate
-torchvision
-torchaudio
-diffusers
+torchvision==0.15.1
+torchaudio==2.0.1
+diffusers==0.15.1
+compel
 # fairscale
 # fonts
 # font-roboto
 numpy==1.23.5
-omegaconf~=2.2.3
+numba==0.56.4
+cupy-wheel==12.0.0
+omegaconf==2.3.0
 piexif~=1.1.3
-Pillow~=9.4.0
+Pillow==9.5.0
 pytorch_lightning
 scikit-image~=0.19.3
 timm~=0.6.12

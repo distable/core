@@ -9,11 +9,6 @@ from src_plugins.paella import colab
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-class paella_job(prompt_job):
-    def __init__(self, *kargs, **kwargs):
-        super().__init__(*kargs, **kwargs)
-        self.name = "Paella"
-
 class PaellaPlugin(Plugin):
     def title(self):
         return "paella"

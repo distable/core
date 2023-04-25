@@ -111,7 +111,7 @@ def emit(event: str, msg: str):
     Emit a socket-io message with the server.
     """
     from src_core.jobs import server
-    server.emit(event, msg)
+    server._emit(event, msg)
 
 
 # @run.command()

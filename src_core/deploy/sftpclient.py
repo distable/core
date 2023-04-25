@@ -37,18 +37,23 @@ class SFTPClient(paramiko.SFTPClient):
         self.port = None
         self.print_rsync = True
 
-    def put_any(self, source, target, forbid_rsync=False, forbid_recursive=False):
+    def put_any(self, source, target, forbid_rsync=False, forbid_recursive=False, rsync_excludes=None, rsync_includes=None):
+        if rsync_excludes is None:
+            rsync_excludes = []
+        if rsync_includes is None:
+            rsync_includes = []
+
         source = Path(source)
         target = Path(target)
 
         if source.is_dir():
             self.mkdir(target.as_posix(), ignore_existing=True)
-            self.put_dir(source.as_posix(), target.as_posix(), forbid_rsync=forbid_rsync, forbid_recursive=forbid_recursive)
+            self.put_dir(source.as_posix(), target.as_posix(), forbid_rsync=forbid_rsync, forbid_recursive=forbid_recursive, rsync_excludes=rsync_excludes, rsync_includes=rsync_includes)
         else:
             print(f"Uploading {source.as_posix()} to {target.as_posix()}")
             self.put(source.as_posix(), target.as_posix())
 
-    def put_dir(self, source, target, *, forbid_rsync=False, ignore_exts=[], forbid_recursive=False):
+    def put_dir(self, source, target, *, forbid_rsync=False, ignore_exts=[], forbid_recursive=False, rsync_excludes=None, rsync_includes=None):
         """
         Uploads the contents of the source directory to the target path. The
         target directory needs to exists. All subdirectories in source are
@@ -57,15 +62,25 @@ class SFTPClient(paramiko.SFTPClient):
         import yachalk as chalk
         print(f"{target} ({chalk.chalk.dim(target)})")
 
-        if self.rsync and not forbid_rsync:
-            flag = ''
-            if self.print_rsync:
-                flag = 'v'
-            if not forbid_recursive:
-                flag += 'r'
+        if rsync_excludes is None: rsync_excludes = []
+        if rsync_includes is None: rsync_includes = []
 
-            cm = f"rsync -rlptgoDz{flag} -e 'ssh -p {self.port}' {source} root@{self.ip}:{Path(target).parent}"
-            # print(cm)
+        if self.rsync and not forbid_rsync:
+            flags = ''
+            if self.print_rsync:
+                flags = 'v'
+            if not forbid_recursive:
+                flags += 'r'
+
+            flags2 = ""
+            for exclude in rsync_excludes:
+                flags2 += f" --exclude='{exclude}'"
+            for include in rsync_includes:
+                flags2 += f" --include='{include}'"
+
+
+            cm = f"rsync -rlptgoDz{flags} -e 'ssh -p {self.port}' {source} root@{self.ip}:{Path(target).parent} {flags2}"
+            print(f"> {cm}")
             os.system(cm)
             return
 

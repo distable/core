@@ -5,30 +5,31 @@ you work in.
 """
 
 import subprocess
+from pathlib import Path
 
 import numpy as np
 import pygame
 from PIL import Image
-from PyQt6 import QtCore, QtGui
-from PyQt6.QtWidgets import *
+from PyQt6 import QtCore
 from pyqtgraph import *
-import pyqtgraph as pg
 from skimage.util import random_noise
 
+from jargs import args
+
+import jargs
 import uiconf
+from src_core.rendering import hud
 from src_core.classes import paths
-from src_core.classes.printlib import trace_decorator
 from src_core.classes.Session import Session
 from src_core.lib import corelib
 from src_core.rendering import renderer, ryusig
-from src_plugins.ryusig_calc.QtUtils import get_keypress_args
 
 enable_hud = False
 key_mode = 'main'
 fps_stops = [1, 4, 6, 8, 10, 12, 24, 30, 50, 60]
 
 discovered_actions = []
-f_pulse = 0
+f_update = 0
 f_displayed = None
 
 sel_action_page = 0
@@ -42,92 +43,22 @@ copied_frame = 0
 current_segment = -1
 invalidated = True
 colors = corelib.generate_colors(8, v=1, s=0.765)
+rv = None
 
-
-class ImageWidget(QWidget):
-    def __init__(self, surf, parent=None):
-        super(ImageWidget, self).__init__(parent)
-        self.surface = surf
-        self.image = None
-        self.update_image()
-
-    def update_image(self):
-        data = self.surface.get_buffer().raw
-        w = self.surface.get_width()
-        h = self.surface.get_height()
-        self.image = QtGui.QImage(data, w, h, QtGui.QImage.Format.Format_RGB32)
-
-    def paintEvent(self, event):
-        # Update the image data without creating a new QImage
-        self.update_image()
-
-        # Paint the image
-        qp = QtGui.QPainter()
-        qp.begin(self)
-        qp.drawImage(0, 0, self.image)
-        qp.end()
-
-
-class HoboWindow(QMainWindow):
-    def __init__(self, surf, parent=None):
-        super(HoboWindow, self).__init__(parent)
-        self.setCentralWidget(ImageWidget(surf))
-
-        self.timer = QtCore.QTimer()
-        self.timer.timeout.connect(self.on_timer_timeout)
-        self.timer.start(int(1000 / 60))
-        self.timeout_handlers = []
-        self.key_handlers = []
-        self.dropenter_handlers = []
-        self.dropleave_handlers = []
-        self.dropfile_handlers = []
-        self.focusgain_handlers = []
-        self.focuslose_handlers = []
-        self.setFocusPolicy(QtCore.Qt.FocusPolicy.StrongFocus)
-        self.setAcceptDrops(True)
-
-    def on_timer_timeout(self):
-        for hnd in self.timeout_handlers:
-            hnd()
-        self.update()
-        self.centralWidget().repaint()
-
-
-    def keyPressEvent(self, event):
-        for hnd in self.key_handlers:
-            hnd(*get_keypress_args(event))
-
-    def dropEvent(self, event):
-        for hnd in self.dropfile_handlers:
-            hnd(event.mimeData().urls())
-
-    def dragEnterEvent(self, event):
-        for hnd in self.dropenter_handlers:
-            hnd(event.mimeData().urls())
-
-    def dragLeaveEvent(self, event):
-        for hnd in self.dropleave_handlers:
-            hnd(event.mimeData().urls())
-
-    def focusInEvent(self, event):
-        for hnd in self.focusgain_handlers:
-            hnd()
-
-    def focusOutEvent(self, event):
-        for hnd in self.focuslose_handlers:
-            hnd()
-
-
-def init():
+def init(_rv):
     global enable_hud
     global font
     global discovered_actions
     global surface
+    global rv
+
+    rv = _rv
 
     discovered_actions = list(paths.iter_scripts())
     session = renderer.session
 
     # Setup pygame renderer
+    ryusig.rv = rv
     pygame.init()
     surface = pygame.Surface((session.w, session.h))
     surface.fill((255, 0, 255))
@@ -135,27 +66,28 @@ def init():
     font = pygame.font.Font((paths.plug_res / 'vt323.ttf').as_posix(), fontsize)
 
 
-@trace_decorator
 def update():
     global enable_hud
     global current_segment
     global copied_frame
     global sel_action_page, discovered_actions
     global f_displayed, last_vram_reported
-    global f_pulse
+    global f_update
     global surface
 
-    if f_pulse % 60 == 0:
+    if f_update % 60 == 0:
         # Update VRAM using nvidia-smi
         last_vram_reported = subprocess.check_output(['nvidia-smi', '--query-gpu=memory.used', '--format=csv,noheader,nounits']).decode('utf-8').strip()
         last_vram_reported = int(last_vram_reported)
 
+    if renderer.is_readonly and f_update % 120 == 0 and renderer.paused:
+        refresh_session()
+
     draw()
 
 
-@trace_decorator
 def draw():
-    global f_pulse
+    global f_update
     global enable_hud
     global current_segment
     global copied_frame
@@ -165,7 +97,6 @@ def draw():
     global invalidated
 
     session = renderer.session
-    v = renderer.v
     w = session.w
     h = session.h
 
@@ -192,11 +123,11 @@ def draw():
         im = None
         # New frame
         if sel_snapshot == -1:
-            im = session.image_cv2
+            im = session.img
             if im is None:
                 im = np.zeros((session.h, session.w, 3), dtype=np.uint8)
-        elif sel_snapshot < len(v.snapshots):
-            im = v.snapshots[sel_snapshot][1]
+        elif sel_snapshot < len(hud.snaps):
+            im = hud.snaps[sel_snapshot][1]
 
         if im is not None and im.shape >= (1, 1, 1):
             im = np.swapaxes(im, 0, 1)  # cv2 loads in h,w,c order, but pygame wants w,h,c
@@ -227,6 +158,9 @@ def draw():
     # Devmode
     draw_text("Dev" if renderer.is_dev else "", right, top + ht * 2, (255, 255, 255), origin=(1, 0))
 
+    # Tracing
+    draw_text("Trace" if jargs.args.trace else "", right, top + ht * 3, (255, 255, 255), origin=(1, 0))
+
     # UPPER RIGHT
     # ----------------------------------------
     top2 = top + 6
@@ -235,12 +169,12 @@ def draw():
         color = (255, 255, 255)
         if renderer.request_render == 'toggle':
             color = (255, 0, 255)
-            draw_text("-- Rendering --", v.w2, top2, color, origin=(0.5, 0.5))
+            draw_text("-- Rendering --", rv.w2, top2, color, origin=(0.5, 0.5))
         else:
-            draw_text("-- Busy --", v.w2, top2, color, origin=(0.5, 0.5))
+            draw_text("-- Busy --", rv.w2, top2, color, origin=(0.5, 0.5))
 
-        draw_text(f"{renderer.n_rendered} frames", v.w2, top2 + ht, color, origin=(0.5, 0.5))
-        draw_text(f"{renderer.n_rendered / session.fps:.02f}s", v.w2, top2 + ht + ht, color, origin=(0.5, 0.5))
+        draw_text(f"{renderer.n_rendered} frames", rv.w2, top2 + ht, color, origin=(0.5, 0.5))
+        draw_text(f"{renderer.n_rendered / session.fps:.02f}s", rv.w2, top2 + ht + ht, color, origin=(0.5, 0.5))
 
         render_progressbar_y = top2 + ht + ht
 
@@ -264,9 +198,9 @@ def draw():
 
     # LOWER RIGHT
     # ----------------------------------------
-    if -1 < sel_snapshot < len(v.snapshots):
+    if -1 < sel_snapshot < len(hud.snaps):
         snap_str = f"Snapshot {sel_snapshot}"
-        snapshot = v.snapshots[sel_snapshot]
+        snapshot = hud.snaps[sel_snapshot]
         snap_str += f" ({snapshot[0]})"
 
         draw_text(snap_str, right, bottom - ht * 1, origin=(1, 0))
@@ -286,8 +220,8 @@ def draw():
             bw2 = bw / 2
             bh = 3
             yoff = -2
-            pygame.draw.rect(surface, (0, 0, 0), (v.w2 - bw2 - 1, render_progressbar_y + ht + yoff, bw + 2, bh))
-            pygame.draw.rect(surface, (0, 255, 255), (v.w2 - bw2, render_progressbar_y + ht + yoff, bw * render_progress, bh))
+            pygame.draw.rect(surface, (0, 0, 0), (rv.w2 - bw2 - 1, render_progressbar_y + ht + yoff, bw + 2, bh))
+            pygame.draw.rect(surface, (0, 255, 255), (rv.w2 - bw2, render_progressbar_y + ht + yoff, bw * render_progress, bh))
 
     if f_last > 0:
         # Draw segment bars on top of the progress bar
@@ -325,17 +259,16 @@ def draw():
         x = 0
         ppf = w / f_last
         while x < w:
-            x = int(x)
             y = 0
             height = minor_tick_height
             color = minor_tick_color
             # print(session.w, session.f_last, ppf, x, minor_ticks * ppf, session.w // major_ticks, major_ticks, session.fps, int(major_ticks*ppf))
-            if x % int(major_ticks * ppf) == 0:
+            if int(x) % max(1, int(major_ticks * ppf)) == 0:
                 height = major_tick_height
                 color = major_tick_color
 
-            pygame.draw.line(surface, color, (x, y), (x, y + height))
-            pygame.draw.line(surface, color, (x + 1, y), (x + 1, y + height))
+            pygame.draw.line(surface, color, (int(x), y), (int(x), y + height))
+            pygame.draw.line(surface, color, (int(x) + 1, y), (int(x) + 1, y + height))
             x += minor_ticks * ppf
 
     if renderer.is_rendering:
@@ -355,9 +288,18 @@ def draw():
         dhud = session.get_frame_data('hud', True)
         if dhud:
             for i, row in enumerate(dhud):
-                s = row[0]
+                value = row[0]
                 color = row[1]
-                fragments = s.split('\n')
+                changed = False
+                if i > 0:
+                    last_value = dhud[i - 1][0]
+                    changed = value != last_value
+
+                # This is a hack, the color is stored in file and i want to change it for existing files..
+                # if changed:
+                #     color = [000, 255, 000]
+
+                fragments = value.split('\n')
                 for frag in fragments:
                     draw_text(frag, x, y, color)
                     y += ht
@@ -372,7 +314,7 @@ def draw():
             draw_text(f'({i + 1}) {name}', x, y, color)
             y += ht
 
-    f_pulse += 1
+    f_update += 1
 
 
 def keydown(key, ctrl, shift, alt):
@@ -381,10 +323,9 @@ def keydown(key, ctrl, shift, alt):
     global invalidated
 
     qkeys = QtCore.Qt.Key
-    v = renderer.v
     s = renderer.session
 
-    n_snapshots = len(v.snapshots)
+    n_snapshots = len(hud.snaps)
     if n_snapshots > 1:
         if key == qkeys.Key_Right and shift:
             sel_snapshot = min(sel_snapshot + 1, n_snapshots - 1)
@@ -435,12 +376,12 @@ def keydown_action(key, ctrl, shift, alt):
             os.popen(s)
             key_mode = 'main'
 
+
 def keydown_main(key, ctrl, shift, alt):
     global current_segment, copied_frame, enable_hud, key_mode
 
     qkeys = QtCore.Qt.Key
     session = renderer.session
-    v = renderer.v
     w = session.w
     h = session.h
 
@@ -452,6 +393,8 @@ def keydown_main(key, ctrl, shift, alt):
         ryusig.toggle()
     if key == qkeys.Key_F2:
         renderer.is_dev = not renderer.is_dev
+    if key == qkeys.Key_F3:
+        args.trace = not args.trace
 
     if key == qkeys.Key_R and shift:
         s = Session(renderer.session.dirpath)
@@ -487,10 +430,10 @@ def keydown_main(key, ctrl, shift, alt):
         current_segment = max(0, current_segment - 1)
         renderer.seek(get_segments()[current_segment][0])
     if key == uiconf.key_copy_frame:
-        copied_frame = session.image_cv2
+        copied_frame = session.img
     if key == uiconf.key_paste_frame:
         if copied_frame is not None:
-            session.image_cv2 = copied_frame
+            session.img = copied_frame
             session.save()
             session.save_data()
             renderer.invalidated = True
@@ -507,6 +450,8 @@ def keydown_main(key, ctrl, shift, alt):
             renderer.render('toggle')
         else:
             renderer.render('now')
+    if key == uiconf.key_reload_script:
+        renderer.reload_script()
     if key == uiconf.key_toggle_hud:
         enable_hud = not enable_hud
     if key == uiconf.key_set_segment_start:
@@ -559,27 +504,23 @@ def focusgain():
     renderer.request_script_check = True
     renderer.detect_script_every = -1
 
-
-def dropenter(file):
-    pass
-
-
-def dropleave(file):
-    print('dropleave', file)
-    pass
+    if renderer.is_readonly:
+        refresh_session()
 
 
-def dropfile(file):
-    print('dropfile', file)
-    session = Session(file, fixpad=True)
-    session.seek_min()
+def dropenter(files):
+    file = Path(files[0])
+    if file.is_dir():
+        session = Session(file, fixpad=True)
+        session.seek_min()
 
-    # TODO on_session_changed
-    if session.w and session.h:
-        pygame.display.set_mode((session.w, session.h))
+        # TODO on_session_changed
+        if session.w and session.h:
+            pygame.display.set_mode((session.w, session.h))
 
-    renderer.update_session(session)
-    return session
+        renderer.set_session(session)
+    elif file.suffix in paths.image_exts:
+        renderer.set_image(file)
 
 
 # region API
@@ -648,3 +589,14 @@ def upfont(param):
     fontsize += param
     font = pygame.font.Font((paths.plug_res / 'vt323.ttf').as_posix(), fontsize)
 # endregion
+
+def refresh_session():
+    ses = renderer.session
+    nextfile = ses.det_frame_path(ses.f_last + 1)
+    if os.path.exists(nextfile):
+        tmp_f = ses.f
+        was_last = ses.f >= ses.f_last
+        renderer.session.load()
+        renderer.session.f = tmp_f
+        if was_last:
+            ses.seek(ses.f_last)

@@ -6,6 +6,8 @@ import os
 import shutil
 import sys
 from pathlib import Path
+
+import jargs
 from jargs import argp, args, spaced_args
 
 sys.path.append(Path(__file__).parent.as_posix())
@@ -216,12 +218,10 @@ def main():
         plugin_wizard()
         return
 
-    # Deployment
-    # ----------------------------------------
     if args.local:
         from deploy import deploy_local
         deploy_local()
-    elif args.vastai or args.vastai_continue:
+    elif jargs.is_vastai:
         from deploy import deploy_vastai
         deploy_vastai()
     else:

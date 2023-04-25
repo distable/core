@@ -7,7 +7,7 @@ A 'render script' must be loaded which is a python file which implements a rende
 The file is watched for changes and automatically reloaded when it is modified.
 A valid render script has the following functions:
 
-- def on_callback(v, name)  (required)
+- def on_callback(rv, name)  (required)
 
 Various renderer events can be hooked with this on_callback by checking the name,
 and will always come in this order:
@@ -31,32 +31,36 @@ import threading
 import time
 from pathlib import Path
 
+import numpy as np
 from yachalk import chalk
 
 import jargs
 import userconf
+from classes.convert import load_cv2
 from jargs import args, get_discore_session
 from src_core.lib.corelib import invoke_safe
 from src_core.classes import paths
 from src_core.classes.paths import get_script_file_path, parse_action_script
-from src_core.classes.printlib import cpuprofile, trace, trace_decorator
+from src_core.classes.printlib import cputrace, trace, trace_decorator
 from src_core.classes.Session import Session
-from src_core.rendering.hud import clear_hud, draw_hud, hud, hud_rows, save_hud
+from src_core.rendering import hud
 from src_core.rendering.rendervars import RenderVars
 from src_plugins.ryusig_calc.AudioPlayback import AudioPlayback
 
-unsafe = False
 
 initialized = False
 callbacks = []
-v = RenderVars()
+rv = RenderVars()
 
 session: None | Session = None  # Current session
 script_name = ''  # Name of the script file
 script = None  # The script module
-is_dev = False  # Are we in dev mode?
+script_error = False  # Whether initialization errored out
+is_dev = args.dev or args.readonly  # Are we in dev mode?
+unsafe = args.dev or args.unsafe  # Should we let calls to the script explode so we can easily debug?
 is_gui = False  # Are we in GUI mode?
 is_main_thread = False  # Are we on a separate thread to let the GUI be on main?
+is_readonly = args.readonly
 
 # Parameters (long)
 detect_script_every = 1
@@ -101,13 +105,23 @@ tmplist = []  # A list for temporary use
 
 # region Emits
 @trace_decorator
-def emit(name):
-    for cb in callbacks:
-        cb(v, name)
+def _emit(name):
+    if script:
+        script.rv = rv
+        script.s = session
+        script.ses = session
+        script.f = rv.f
+        script.dt = rv.dt
+        script.fps = rv.fps
 
+    if hasattr(script, name):
+        func = getattr(script, name)
+        func()
+    if hasattr(script, 'callback'):
+        script.callback(name)
 
-def emit_register(cb):
-    callbacks.append(cb)
+def _invoke_safe(*args, **kwargs):
+    return invoke_safe(*args, unsafe=unsafe, **kwargs)
 
 
 # endregion
@@ -136,13 +150,17 @@ def detect_script_modified():
 
     return check_dir(paths.scripts) or check_dir(session.dirpath)
 
+def reload_script():
+    global script
+    script = None
+    load_script()
 
 def load_script(name=None):
+    global script, script_error
     import importlib
 
     callbacks.clear()
 
-    global script
     with trace('renderer.load_script'):
         # Determine the script path
         # ----------------------------------------
@@ -174,19 +192,27 @@ def load_script(name=None):
             if script is None:
                 import importlib
 
+                rv.init()
+
                 with trace(f'renderer.load_script.importlib.import_module({mpath})'):
-                    script = importlib.import_module(mpath, package='imported_renderer_script')
-                    invoke_safe(emit, 'load', unsafe=unsafe)
-                    invoke_safe(emit, 'init', unsafe=unsafe)
+                    if unsafe:
+                        script = importlib.import_module(mpath, package='imported_renderer_script')
+                    else:
+                        try:
+                            script = importlib.import_module(mpath, package='imported_renderer_script')
+                        except Exception as e:
+                            print("SCRIPT ERROR")
+                            print(e)
+                            script_error = True
+
+                    _invoke_safe(_emit, 'init')
             else:
                 importlib.reload(script)
 
-            invoke_safe(emit, 'setup', unsafe=unsafe)
-            invoke_safe(emit, 'prompt', unsafe=unsafe)
-            invoke_safe(emit, 'ready', unsafe=unsafe)
-            invoke_safe(emit, 'eval', unsafe=unsafe)
+            rv.load_signals()
+            _invoke_safe(_emit, 'start')
 
-            invoke_safe(on_script_loaded, unsafe=unsafe)
+            _invoke_safe(on_script_loaded)
         if script is not None and oldglobals is not None:
             script.__dict__.update(oldglobals)
 
@@ -195,12 +221,12 @@ def load_script(name=None):
 
 # region Core functionality
 
-def init(s=None, scriptname='', gui=True, main_thread=True):
+def init(_session=None, scriptname='', gui=True, main_thread=True):
     """
     Initialize the renderer
     This will load the script, initialize the core
     Args:
-        s:
+        _session:
         scriptname: Name of the script to load. If not specified, it will load the default session script.
         gui: Whether or not we are running in GUI mode. In CLI, we immediately resume the render and cannot do anything else.
         main_thread: Run the renderer on a side thread so the main thread is reserved for GUI. You must pass a callback to loop() instead of using it as a yielding iterator.
@@ -219,15 +245,16 @@ def init(s=None, scriptname='', gui=True, main_thread=True):
     is_main_thread = main_thread
     script_name = scriptname
 
-    session = s or get_discore_session()
-    v.reset(0, session)
+    set_session(_session or get_discore_session())
+    rv.start_frame(1)
+    rv.init()
 
     # Setup the session
     # ----------------------------------------
-    session.width = v.w
-    session.height = v.h
-    if session.image is None:
-        session.set(Image.new('RGB', (v.w, v.h), (0, 0, 0)))
+    session.width = rv.w
+    session.height = rv.h
+    if session.img is None:
+        session.img = np.zeros((rv.h, rv.w, 3), dtype=np.uint8)
 
     # Initialize the core
     # ----------------------------------------
@@ -236,7 +263,7 @@ def init(s=None, scriptname='', gui=True, main_thread=True):
     # Load the script
     # ----------------------------------------
     with trace('Script loading'):
-        invoke_safe(load_script, unsafe=unsafe)
+        _invoke_safe(load_script)
 
     # GUI setup
     # ----------------------------------------
@@ -248,12 +275,13 @@ def init(s=None, scriptname='', gui=True, main_thread=True):
     invalidated = True
     initialized = True
 
+    rv.trace = 'initialized'
     signal.signal(signal.SIGTERM, handle_sigterm)
     return session
 
 
 def ui_thread_loop():
-    from src_core.rendering.hobo import HoboWindow
+    from rendering.HoboWindow import HoboWindow
     from src_core.rendering import hobo, ryusig
     global request_stop
 
@@ -263,9 +291,9 @@ def ui_thread_loop():
     pyqtgraph.mkQApp("Discore")
 
     from src_plugins.ryusig_calc.AudioPlayback import AudioPlayback
-    audio.init(v.wavs or session.res_music(optional=True), root=session.dirpath)
+    audio.init(rv.wavs or session.res_music(optional=True), root=session.dirpath)
 
-    hobo.init()
+    hobo.init(rv)
     # ryusig.init()
 
     # Setup Qt window
@@ -298,9 +326,7 @@ def handle_sigterm():
 def loop(lo=None, hi=math.inf, callback=None, inner=False):
     if not is_main_thread and not inner:
         def loop_thread():
-            global request_stop
-            for f in loop(lo, hi, inner=True):
-                callback(f)
+            loop(lo, hi, inner=True, callback=callback)
 
         t = threading.Thread(target=loop_thread, args=())
         t.start()
@@ -334,7 +360,7 @@ def loop(lo=None, hi=math.inf, callback=None, inner=False):
                     request_script_check = False
                     if detect_script_modified():
                         print(chalk.dim(chalk.blue("Change detected in scripts, reloading")))
-                        invoke_safe(load_script, unsafe=unsafe)
+                        _invoke_safe(load_script)
                     last_script_check = time.time()
 
             # ----------------------------------------
@@ -357,16 +383,15 @@ def loop(lo=None, hi=math.inf, callback=None, inner=False):
             had_seeks = len(seeks) > 0
             prev_seeks = list(seeks)
 
-
             just_seeked = had_seeks and len(seeks) == 0
 
             if changed:
-                invoke_safe(on_frame_changed, session.f, unsafe=unsafe)
-                invoke_safe(on_t_changed, session.t, unsafe=unsafe)
+                _invoke_safe(on_frame_changed, session.f)
+                _invoke_safe(on_t_changed, session.t)
 
             # ----------------------------------------
             with trace("renderiter.audio"):
-                if not paused and not audio.is_playing() and (not request_render or is_dev): #or is_dev and request_render == 'toggle':
+                if not paused and not audio.is_playing() and (not request_render or is_dev):  # or is_dev and request_render == 'toggle':
                     audio.play(session.t)
                 elif paused and audio.is_playing():
                     audio.stop()
@@ -377,15 +402,21 @@ def loop(lo=None, hi=math.inf, callback=None, inner=False):
             # ----------------------------------------
             with trace("renderiter.render"):
                 render = request_render == 'now' or request_render == 'toggle' or not is_gui
+                render = render and not script_error  # User must fix the script, it's too likely to cause crashes
                 if render:
                     if request_render == 'now':
                         request_render = False
 
                     if session.f <= session.f_last:
+                        im = session.img
                         session.seek_new()
+                        session.img = im
 
-                    with cpuprofile(args.trace):
-                        yield session.f
+                    with cputrace('frame', args.profile, args.trace):
+                        if callback:
+                            callback(session.f)
+                        else:
+                            frame()
 
                     if not is_dev:
                         last_frame_time = None
@@ -393,6 +424,8 @@ def loop(lo=None, hi=math.inf, callback=None, inner=False):
                     require_dry_run = not session.has_frame_data('hud') and session.f_exists and auto_populate_hud
                     if require_dry_run:
                         frame(dry=True)
+                else:
+                    pass
 
             if paused:
                 time.sleep(1 / 60)
@@ -402,9 +435,22 @@ def loop(lo=None, hi=math.inf, callback=None, inner=False):
     session.save_data()
     request_stop = True
 
+def set_session(s):
+    global session, request_pause, invalidated
+    session = s
+    rv.session = s
+    request_pause = True
+    invalidated = True
+
+def set_image(img):
+    global invalidated
+    img = load_cv2(img)
+    session.img = img
+    rv.img = img
+    invalidated = True
 
 @trace_decorator
-def frame(f=None, scalar=1, s=None, dry=False):
+def frame(f=None, scalar=1, dry=False):
     """
     Render a frame.
     Args:
@@ -416,93 +462,80 @@ def frame(f=None, scalar=1, s=None, dry=False):
     Returns:
 
     """
-    global v
+    global rv
     global start_f, n_rendered, session
     global last_frame_prompt, n_rendered
     global invalidated
     global is_rendering, paused, request_pause
     global request_render
 
+
+    f = int(f or session.f)
+
     # The script has requested the maximum frame length
-    if v.len > 0 and session.f >= v.len - 1:
+    is_past_end = f >= rv.n - 1 and rv.n > 0
+    if is_past_end:
         request_render = None
         request_pause = True
         seek(session.f_last)
-        # TODO UI notification
+        print(f"Reached maximum frame length (n={rv.n}")  # TODO UI notification
+        _invoke_safe(_emit, 'max_frame_length')
         return
-
-    session.dev = is_dev
 
     is_rendering = True
 
-    # Update state
-    s = s or session
-    f = f or s.f
-    f = int(f)
+    session.f = f
+    session.dev = is_dev
 
-    s.f = f
-    session = s
+    rv.start_frame(f, scalar)
+    rv.dry = dry
+    rv.trace = 'frame'
 
-    # Prepare the rendervars
-    if v.w is None: v.w = s.width
-    if v.h is None: v.h = s.height
-    v.set_frame_signals()
-    v.reset(f, s)
-    v.scalar = scalar
-
-    # Start the HUD
-    ss = f'frame {v.f} | {v.t:.2f}s ----------------------'
-    if not userconf.print_jobs:
+    # Print the header
+    if rv.n > 0:
+        ss = f'frame {rv.f} / {rv.n} :: {rv.t:.2f}s ----------------------'
+    else:
+        ss = f'frame {rv.f} :: {rv.t:.2f}s ----------------------'
+    if userconf.print_frames:
         print("")
         print(ss)
-    hud(ss)
 
-    clear_hud()
+    hud.clear()
 
-    # Actual rendering with the render script
-    s.disable_jobs = dry
-    v.dry = dry
+    render_failed = not _invoke_safe(_emit, 'frame', failsleep=0.25)
 
-    # current_session.f = f
-    start_f = s.f
-    start_img = s.image
-    last_frame_failed = not invoke_safe(emit, 'frame', failsleep=0.25, unsafe=unsafe)
-    restore = last_frame_failed or dry
+    start_f = session.f
+    start_img = session.img
+    session.img = rv.img
+    session.fps = rv.fps
+
+    restore = render_failed or dry
     if restore:
         # Restore the frame number
-        s.seek(start_f)
-        s.set(start_img)
-        s.disable_jobs = False
+        session.seek(start_f)
+        session.img = start_img
     else:
-        prompt_changed = v.prompt != last_frame_prompt or start_f == 1
-
-        v.hud()
-        hud(p=v.prompt, tcolor=(255, 255, 255) if prompt_changed else (170, 170, 170))
-
-        last_frame_prompt = v.prompt
-        s.set_frame_data('prompt_changed', prompt_changed)
-        s.set_frame_data('hud', list(hud_rows))
+        session.set_frame_data('hud', list(hud.rows))
 
         if enable_save and not is_dev:
             time.sleep(0.05)
-            s.save()
-            s.save_data()
+            session.save()
+            session.save_data()
 
         if enable_save_hud and not is_dev:
-            save_hud(s, draw_hud(s))
+            hud.save(session, hud.to_pil(session))
 
         n_rendered += 1
 
         # Handled by update_playback instead to keep framerate in sync with audio
         if not is_dev:
-            if s.f < s.f_first: s.f_first = s.f
-            if s.f > s.f_last: s.f_last = s.f
-            s.load_f(f + 1)
+            if session.f < session.f_first: session.f_first = session.f
+            if session.f > session.f_last: session.f_last = session.f
+            session.load_f(f + 1)
 
-    clear_hud()
     is_rendering = False
     invalidated = True
-    if last_frame_failed:
+    if render_failed:
         request_pause = True
 
 
@@ -564,7 +597,7 @@ def flush_seeks(seeks):
 
     tmplist.clear()
     tmplist.extend(seeks)
-    for iseek, manual, image_only in tmplist:
+    for iseek, manual, image_only, no_image in tmplist:
         seeks.pop(0)
 
         f_prev = session.f
@@ -576,10 +609,14 @@ def flush_seeks(seeks):
         if session.f_last is not None and session.f > session.f_last + 1:
             session.f = session.f_last + 1
 
+        img = session.img
         if image_only:
             session.load_file(f_prev)
         else:
             session.load_f(clamped_load=True)
+        if no_image:
+            print("LOAD WITH NO IMG")
+            session.img = img
 
         invalidated = changed = True
 
@@ -588,7 +625,7 @@ def flush_seeks(seeks):
 
 
 def sleep_dt():
-    if v.fps:
+    if rv.fps:
         time.sleep(1 / session.fps)
     else:
         time.sleep(1 / 24)
@@ -597,13 +634,6 @@ def sleep_dt():
 # endregion
 
 # region Control Commands
-def update_session(s):
-    global session, request_pause, invalidated
-    session = session
-    request_pause = True
-    invalidated = True
-
-
 def pause(set='toggle'):
     """
     Set the pause state.
@@ -628,7 +658,8 @@ def seek(f_target,
          manual_input=False,
          pause=None,
          clamp=True,
-         image_only=False):
+         image_only=False,
+         no_image=False):
     """
     Seek to a frame.
     Note this is not immediate, it is a request that will be handled as part of the render loop.
@@ -643,7 +674,7 @@ def seek(f_target,
         if session.f_last is not None and f_target >= session.f_last + 1:
             f_target = session.f_last + 1
 
-    seeks.append((f_target, manual_input, image_only))
+    seeks.append((f_target, manual_input, image_only, no_image))
     looping = False
 
     if pause is not None:
@@ -678,11 +709,20 @@ def render(mode):
     global paused
     global invalidated, request_render, request_pause
 
+    if is_readonly:
+        request_render = False
+        request_pause = True
+        return
+
     # seek(session.f_last)
     if not is_rendering:
-        if session.f < session.f_last + 1:
-            seek(session.f_last + 1, clamp=False)
-            seek(session.f_last, clamp=False, image_only=True)
+        # if session.f == session.f_last:
+        #     # Set without loading
+        #     seek(session.f_last + 1, clamp=False)
+        #     seek(session.f_last, clamp=False, image_only=True, no_image=True)
+        # elif session.f < session.f_last + 1:
+        #     seek(session.f_last + 1, clamp=False)
+        #     seek(session.f_last, clamp=False, image_only=True)
         # request_pause = True
         # invalidated = True
         request_render = mode

@@ -1,11 +1,18 @@
 from PIL import Image, ImageDraw, ImageFont
 
-from src_core import core
+from classes.printlib import printkw
+from rendering import renderer
 from src_core.classes import paths
 from src_core.classes.convert import save_png
 
-hud_rows = [] # list[tuple[str, tuple[int, int, int]]]
-work_rows = []
+snaps = []
+rows = []  # list[tuple[str, tuple[int, int, int]]]
+rows_tmp = []
+
+def snap(name, img=None):
+    if img is None:
+        img = renderer.session.img.copy()
+    snaps.append((name, img))
 
 def hud(*args, tcolor=(255, 255, 255), **kwargs):
     # Turn args and kwargs into a string like 'a1 a2 x=1 y=2'
@@ -17,35 +24,46 @@ def hud(*args, tcolor=(255, 255, 255), **kwargs):
         else:
             s += f'{a} '
 
+    # TODO auto-snap if kwargs is ndarray hwc
+
     for k, v in kwargs.items():
         if isinstance(v, float):
-            s += f'{k}={v:.1f} '
+            s += f'{k}={v:.2f} '
         else:
             s += f'{k}={v} '
 
     maxlen = 80
     s = '\n'.join([s[i:i + maxlen] for i in range(0, len(s), maxlen)])
 
-    hud_rows.append((s, tcolor))
+    printkw(**kwargs)
+    rows.append((s, tcolor))
 
-def clear_hud():
+
+def clear():
     """
     Clear the HUD
     """
-    hud_rows.clear()
+    snaps.clear()
+    rows.clear()
 
-def draw_hud(session):
+def save(session, hud):
+    save_png(hud,
+             session.det_current_frame_path('prompt_hud').with_suffix('.png'),
+             with_async=True)
+
+
+def to_pil(session):
     """
     Add a HUD and save/edit current in hud folder for this frame
     """
     # Create a new black pil extended vertically to fit an arbitrary string
-    work_rows.clear()
-    work_rows.extend(hud_rows)
-    hud_rows.clear()
+    rows_tmp.clear()
+    rows_tmp.extend(rows)
+    rows.clear()
 
-    lines = len(work_rows)
+    lines = len(rows_tmp)
     # count the number of \n in the work_rows (list of tuple[str,_])
-    for row in work_rows:
+    for row in rows_tmp:
         lines += row[0].count('\n')
 
     w = session.w
@@ -64,7 +82,7 @@ def draw_hud(session):
     draw = ImageDraw.Draw(new_pil)
     x = padding
     y = h + padding * 1.25
-    for i, row in enumerate(work_rows):
+    for i, row in enumerate(rows_tmp):
         s = row[0]
         color = row[1]
         fragments = s.split('\n')
@@ -73,8 +91,3 @@ def draw_hud(session):
             y += ht
 
     return new_pil
-
-def save_hud(session, hud):
-    save_png(hud,
-             session.det_current_frame_path('prompt_hud').with_suffix('.png'),
-             with_async=True)

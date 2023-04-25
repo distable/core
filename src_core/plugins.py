@@ -33,7 +33,7 @@ from src_core.classes.logs import logplugin, logplugin_err
 from src_core.classes.paths import short_pid, split_jid
 from src_core.classes.Plugin import Plugin
 from src_core.classes.PlugjobDeco import PlugjobDeco
-from src_core.classes.printlib import cpuprofile, print_bp, print
+from src_core.classes.printlib import cputrace, print_bp, print
 from src_core.classes.prompt_job import prompt_job
 from src_core.classes.printlib import trace
 from src_core import installing
@@ -67,6 +67,39 @@ def download_git_urls(urls: list[str], log=False):
 
 import functools
 
+def plugfun(default_return=None):
+    """
+    Decorates the function to return a default value if the renderer is in dev mode.
+    Later we may also support requests to an external server to get the value.
+    Args:
+        default_return:
+
+    Returns:
+
+    """
+    def decorator(function):
+        def wrapped_call(*kargs, **kwargs):
+            from src_core.rendering import renderer
+            if renderer.is_dev:
+                def get_retval(v):
+                    if isinstance(v, dict) and v.get('_') == 'plugfun':
+                        if v['type'] == 'img':
+                            return renderer.rv.img
+
+                if isinstance(default_return, dict):
+                    return get_retval(default_return)
+                elif isinstance(default_return, list):
+                    return [get_retval(v) for v in default_return]
+                elif isinstance(default_return, tuple):
+                    return tuple([get_retval(v) for v in default_return])
+                else:
+                    return default_return
+
+            return function(*kargs, **kwargs)
+        return wrapped_call
+    return decorator
+
+plugfun_img = dict(_='plugfun', type='img')
 
 def plugjob(func=None, key=None, aliases=None):
     if func is None:
@@ -87,12 +120,10 @@ def __call__(plugin):
     """
     return get(plugin)
 
-
-def get(query, search_jobs=False, instantiate=True):
+def get(query, search_jobs=False, instantiate=True, loading=False):
     """
     Get a plugin instance by JobArgs, pid, or jid
     """
-
     if isinstance(query, Plugin):
         return query
 
@@ -123,15 +154,16 @@ def get(query, search_jobs=False, instantiate=True):
         if instantiate:
             for p in iter_plugins(paths.plugins):
                 if p.stem == query:
-                    plug = instantiate_plugin_at(p, True)
-                    load(plug)
+                    plug = instantiate_plugin_at(p, loading)
+                    if loading:
+                        load(plug)
                     return plug
 
 
     return None
 
 
-def instantiate_plugin_at(path: Path, install=True):
+def instantiate_plugin_at(path: Path, with_install=True):
     """
     Create the plugin, which is a python package/directory.
     Special files are expected:
@@ -141,6 +173,8 @@ def instantiate_plugin_at(path: Path, install=True):
         - __conf__.py: the configuration options for the plugin
     """
     import inspect
+
+    with_install = with_install or args.install
 
     if not path.exists():
         return
@@ -160,7 +194,7 @@ def instantiate_plugin_at(path: Path, install=True):
         # Install requirements
         # ----------------------------------------
         reqpath = (paths.code_plugins / pid / 'requirements.txt')
-        if install and reqpath.exists():
+        if with_install and reqpath.exists():
             with trace(f'src_plugins.{path.stem}.requirements.txt'):
                 print(f'Installing requirements for {pid}...')
                 installing.pipreqs(reqpath)
@@ -169,7 +203,7 @@ def instantiate_plugin_at(path: Path, install=True):
         # Note: __install_ is still called even if we are not
         #       installing so that we can still declare our installations
         # ----------------------------------------
-        installing.skip_installations = not install
+        installing.skip_installations = not with_install
         installing.default_basedir = paths.plug_repos / pid
         try:
             with trace(f'src_plugins.{path.stem}.__install__'):
@@ -280,7 +314,7 @@ def instantiate_plugins_in(loaddir: Path, log=False, install=True):
         instantiate_plugin_at(p, install)
 
     if log:
-        logplugin(f"Loaded {len(alls)} plugins:")
+        logplugin(f"Instantiated {len(alls)} plugins:")
         for plugin in alls:
             print_bp(f"{plugin.id} ({plugin._dir})")
 
@@ -425,7 +459,7 @@ def run(jquery: JobArgs | str | None = None, require_loaded=False, ifo=None, req
     # jargs_str = ' '.join([f'{chalk.white(k)}={chalk.grey(v)}' for k, v in jargs_str.items()])
 
     # logplugin("start", chalk.blue(ifo.jid), jargs_str)
-    with cpuprofile(args.trace_jobs):
+    with cputrace(args.profile_jobs):
         ret = ifo.func(plug, jargs)
     # logplugin("end", chalk.lue(ifo.jid), jargs_str)
     return ret

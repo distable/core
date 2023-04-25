@@ -5,22 +5,16 @@ import torch
 from einops import rearrange
 from PIL import Image, ImageOps
 
+from classes.convert import load_cv2, pil2cv
 from . import py3d_tools as p3d
 from .depth import DepthModel
 
 from src_core.classes.JobArgs import JobArgs
 from src_core.classes.Plugin import Plugin
 from src_core.lib import devices
-from src_core.plugins import plugjob
+from src_core.plugins import plugfun, plugfun_img, plugjob
 
 TRANSLATION_SCALE = 1.0 / 200.0
-
-
-class depth_job(JobArgs):
-    def __init__(self, w_midas: float = 0.3, **kwargs):
-        super().__init__(**kwargs)
-        self.w_midas = w_midas
-        self.dev = False
 
 
 class transform3d_job(JobArgs):
@@ -63,6 +57,9 @@ class Midas3DPlugin(Plugin):
         return ""
 
     def load(self):
+        self.loaded = True
+
+        print("Loading midas ...")
         self.model = DepthModel(devices.device)
         self.model.download_midas(self.res())
         self.model.download_adabins(self.res())
@@ -114,14 +111,14 @@ class Midas3DPlugin(Plugin):
         return result
 
     def transform_3d(self,
-                     pil,
+                     imcv,
                      x, y, z,
                      rx, ry, rz,
                      fov, near, far,
                      padding_mode, sampling_mode,
                      w_midas,
                      depth=None):
-        imcv = np.asarray(pil)
+        imcv = load_cv2(imcv)
 
         x = x
         y = y
@@ -144,37 +141,61 @@ class Midas3DPlugin(Plugin):
         rot_mat = p3d.euler_angles_to_matrix(torch.tensor(rotate_xyz, device=devices.device), "XYZ").unsqueeze(0)
         result = self.transform_image_3d(imcv, depth, rot_mat, translate_xyz, near, far, fov, padding_mode, sampling_mode)
         torch.cuda.empty_cache()
-        return Image.fromarray(result)
 
-    @plugjob
-    def mat3d(self, j: transform3d_job):
-        if not j.session.image: return
-        pil = j.session.image
+        return result
 
-        depth = None
-        if j.flat:
+    @plugfun(plugfun_img)
+    def mat3d(self, x: float = 0,
+              y: float = 0,
+              z: float = 0,
+              rx: float = 0,
+              ry: float = 0,
+              rz: float = 0,
+              fov: float = 90,
+              near: float = 200,
+              far: float = 10000,
+              w_midas: float = 0.3,
+              padding_mode: str = 'border',
+              sampling_mode: str = 'bicubic',
+              depth=None,
+              flat: bool = False,
+              **kwargs):
+        from src_core.rendering import renderer
+        rv = renderer.rv
+
+        if rv.img is None:
+            return
+
+        pil = rv.img
+
+        if flat:
             torch.ones((pil.width, pil.height), device=devices.device)
 
         if not self.loaded:
             self.load()
 
-        return self.transform_3d(j.session.image,
-                                 j.x, j.y, j.z,
-                                 j.rx, j.ry, j.rz,
-                                 j.fov, j.near, j.far,
-                                 j.padding_mode, j.sampling_mode,
-                                 j.w_midas, depth)
+        return self.transform_3d(rv.img,
+                                 x, y, z,
+                                 rx, ry, rz,
+                                 fov, near, far,
+                                 padding_mode, sampling_mode,
+                                 w_midas, depth)
 
-    @plugjob
-    def depth(self, j: depth_job):
+    @plugfun(default_return=(plugfun_img, plugfun_img))
+    def get_depth(self, img, w_midas: float = 0.3, **kwargs):
         if not self.loaded:
             self.load()
 
-        if not j.session.image: return
-        depth = self.model.predict(np.asarray(j.session.image), j.w_midas)
-        pil = self.model.to_pil(depth)
+        from src_core.rendering import renderer
+        session = renderer.session
+
+        if img is None:
+            img = session.img
+
+        depth_tensor = self.model.predict(np.asarray(img), w_midas)
+        pil = self.model.to_pil(depth_tensor)
 
         # The pil out of the model is inverted (far is white)
         pil = ImageOps.invert(pil)
 
-        return pil
+        return pil2cv(pil), depth_tensor
